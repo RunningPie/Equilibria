@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: equilibria-db
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${DB_USER:-equilibria_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_password}
+      POSTGRES_DB: ${DB_NAME:-equilibria_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./app/db/init_sandbox.sql:/docker-entrypoint-initdb.d/init_sandbox.sql:ro
+    networks:
+      - equilibria-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-equilibria_user} -d ${DB_NAME:-equilibria_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Backend Service
+  backend:
+    build: .
+    container_name: equilibria-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-equilibria_user}:${DB_PASSWORD:-secure_password}@db:5432/${DB_NAME:-equilibria_db}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_secret}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      SANDBOX_DB_ROLE: ${SANDBOX_DB_ROLE:-sandbox_executor}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      PYTHONPATH: /app
+      LOG_DIR: /app/logs
+      SYSLOG_DIR: /app/logs/syslogs
+      ASSLOG_DIR: /app/logs/asslogs
+    volumes:
+      - .:/app
+      - ./logs/syslogs:/app/logs/syslogs
+      - ./logs/asslogs:/app/logs/asslogs
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - equilibria-net
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+networks:
+  equilibria-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
