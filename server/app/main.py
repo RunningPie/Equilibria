@@ -10,6 +10,7 @@ import uvicorn
 from app.core.config import settings
 from app.core.logging_config import get_loggers, setup_logging
 from app.db.session import init_db
+from app.schemas.jsend import error_response, success_response, JSendResponse
 
 # Initialize logging on startup
 system_logger, assessment_logger = get_loggers()
@@ -78,35 +79,57 @@ app.include_router(profile.router, prefix="/api/v1/profile", tags=["Profile"])
 
 
 # Health Check Endpoint
-@app.get("/health", tags=["Health"])
-async def health_check():
+@app.get("/health", tags=["Health"], response_model=JSendResponse)
+async def health_check() -> JSendResponse:
     """
     Health check endpoint for monitoring.
     Technical Specifications v2 - Section 7.2
     """
-    system_logger.debug(
+    system_logger.info(  # INFO level agar ter-log
         "Health check requested",
         extra={"event_type": "HEALTH_CHECK"}
     )
-    return {
-        "status": "healthy",
-        "service": "equilibria-backend",
-        "version": settings.APP_VERSION
-    }
+    return success_response(
+        data={
+            "status": "healthy",
+            "service": "equilibria-backend",
+            "version": settings.APP_VERSION
+        },
+        message="Service is healthy"
+    )
 
 
 # Root Endpoint
-@app.get("/", tags=["Root"])
-async def root():
+@app.get("/", tags=["Root"], response_model=JSendResponse)
+async def root() -> JSendResponse:
     """
     Root endpoint with API information.
     """
-    return {
-        "message": "Welcome to Equilibria API",
-        "version": settings.APP_VERSION,
-        "docs": "/docs",
-        "specifications": "Technical Specifications v2.0"
-    }
+    return success_response(
+        data={
+            "message": "Welcome to Equilibria API",
+            "version": settings.APP_VERSION,
+            "docs": "/docs",
+            "specifications": "Technical Specifications v2.0"
+        },
+        message="API is running"
+    )
+
+
+# Global Exception Handler for JSend
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """
+    Global exception handler to ensure all errors return JSend format.
+    """
+    system_logger.error(
+        f"Unhandled exception: {str(exc)}",
+        extra={"event_type": "GLOBAL_EXCEPTION"}
+    )
+    return error_response(
+        message="Internal server error",
+        code=500
+    )
 
 
 if __name__ == "__main__":
