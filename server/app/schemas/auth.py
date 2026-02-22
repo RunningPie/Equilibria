@@ -2,9 +2,10 @@
 Authentication Schemas
 Technical Specifications v2 - Section 7.1
 """
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, field_serializer, ConfigDict
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 
 class LoginRequest(BaseModel):
@@ -14,18 +15,28 @@ class LoginRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
-    """User profile response schema."""
-    user_id: str
-    nim: str
-    full_name: str
-    current_theta: float
-    theta_social: float
-    k_factor: int
+    """
+    User profile response schema.
+    Technical Specifications v2 - Section 3.1, 7.2
+    """
+    # Pydantic v2 config
+    model_config = ConfigDict(from_attributes=True)
+    
+    # Fields - use UUID type to match SQLAlchemy model
+    user_id: UUID = Field(..., description="Unique user identifier")
+    nim: str = Field(..., min_length=1, max_length=20)
+    full_name: str = Field(..., min_length=1, max_length=100)
+    current_theta: float = Field(..., ge=-3.0, le=3.0)
+    theta_social: float = Field(..., ge=-3.0, le=3.0)
+    k_factor: int = Field(..., gt=0)
     has_completed_pretest: bool
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    # Serializer untuk UUID → string (untuk JSON response)
+    @field_serializer('user_id')
+    def serialize_user_id(self, user_id: UUID, _info) -> str:
+        """Convert UUID object to string for JSON serialization."""
+        return str(user_id)
 
 
 class LoginResponse(BaseModel):

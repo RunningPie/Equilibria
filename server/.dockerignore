@@ -1,0 +1,4 @@
+# Add to server/.dockerignore
+alembic/README
+alembic/*.md
+**/*.md
