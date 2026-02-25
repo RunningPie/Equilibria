@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import AsyncAdaptedQueuePool
 from app.core.config import settings
 from app.core.logging_config import get_loggers
-from typing import AsyncGenerator
-import logging
+from typing import AsyncGenerator, Optional
+from sqlalchemy import select
 
 logger = get_loggers()[0]  # Get system logger
 
@@ -22,8 +22,8 @@ class DatabaseSession:
     3. Proper cleanup
     '''
     
-    _engine = AsyncEngine | None
-    _session_factory: async_sessionmaker[AsyncSession] | None = None
+    _engine: Optional[AsyncEngine] = None
+    _session_factory: Optional[async_sessionmaker[AsyncSession]] = None
     
     @classmethod
     def get_engine(cls) -> AsyncEngine:
@@ -135,7 +135,8 @@ async def init_db():
     try:
         engine = DatabaseSession.get_engine()
         async with engine.connect() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(select(1))  # ✅ Gunakan select() dari SQLAlchemy
+            await conn.commit()
         logger.info(
             "Database connection initialized successfully",
             extra={"event_type": "DB_CONNECTION_INIT_SUCCESS"}

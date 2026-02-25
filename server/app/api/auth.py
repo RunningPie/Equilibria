@@ -24,7 +24,7 @@ from app.core.security import (
 from app.core.dependencies import get_current_user
 from app.core.config import settings
 from app.core.logging_config import get_loggers
-from server.app.db.models import user
+from app.db.models import user
 
 router = APIRouter(
     prefix="/auth",

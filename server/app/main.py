@@ -68,7 +68,7 @@ app.add_middleware(
 )
 
 # Include API Routers
-from app.api import api_router
+from app.api.router import api_router
 app.include_router(api_router, prefix="/api", tags=["API"])
 
 # Health Check Endpoint
