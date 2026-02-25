@@ -68,13 +68,13 @@ app.add_middleware(
 )
 
 # Include API Routers
-from app.api import auth, assessment, collaboration, modules, profile
+# from app.api import auth, assessment, collaboration, modules, profile
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(assessment.router, prefix="/api/v1/session", tags=["Assessment"])
-app.include_router(collaboration.router, prefix="/api/v1/collaboration", tags=["Collaboration"])
-app.include_router(modules.router, prefix="/api/v1/modules", tags=["Modules"])
-app.include_router(profile.router, prefix="/api/v1/profile", tags=["Profile"])
+# app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+# app.include_router(assessment.router, prefix="/api/v1/session", tags=["Assessment"])
+# app.include_router(collaboration.router, prefix="/api/v1/collaboration", tags=["Collaboration"])
+# app.include_router(modules.router, prefix="/api/v1/modules", tags=["Modules"])
+# app.include_router(profile.router, prefix="/api/v1/profile", tags=["Profile"])
 
 
 # Health Check Endpoint
