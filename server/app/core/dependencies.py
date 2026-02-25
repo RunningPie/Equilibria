@@ -4,25 +4,38 @@ utamanya di sini utk get current user
 di endpoint-endpoint
 '''
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
-from typing import Optional
+from fastapi import Depends, HTTPException, status, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
+from jose import jwt, JWTError
+from typing import Optional, Annotated
 
 from app.core.config import settings
 from app.core.security import decode_access_token
 from app.db.session import get_db
-from app.db.models.user import User
+from app.db.models import User
 from sqlalchemy.future import select
 
-# === Pake OAUTH2 Bearer token scheme ===
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/auth/login",
+# === Pake HTTP Bearer token scheme ===
+oauth2_scheme = HTTPBearer(
     scheme_name="JWT",
     auto_error=False  # biar bisa custom error handling
 )
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db=Depends(get_db)) -> Optional[User]:
+# === Ekstraksi bearer token dan validasi user ===
+
+async def extract_token(authorization: Optional[str] = Header(None)) -> Optional[str]:
+    '''
+    Ekstrak token dari header Authorization: Bearer <token>
+    '''
+    if authorization is None:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer":
+        return None
+    return token.strip()
+
+async def get_current_user(token: str = Depends(extract_token), db=Depends(get_db)) -> Optional[User]:
     '''
     Dependency untuk mendapatkan current user dari JWT token
     

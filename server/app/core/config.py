@@ -36,7 +36,7 @@ class Settings(BaseSettings):
         
     # ==== Security Settings ====
     JWT_SECRET_KEY: str
-    ALGORITHM: str = "HS256"
+    JWT_ALGORITHM: str = "HS256"
     SANDBOX_DB_ROLE: str = "sandbox_executor"
     CORS_ORIGINS: list[str] = ["*"]  # Update with specific origins in production
     

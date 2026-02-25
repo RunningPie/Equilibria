@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
 
-from app.db.session import get_db # TODO: db session belum dibuat
+from app.db.session import get_db
 from app.db.models import User
-from app.schemas.jsend import JSendResponse, JSendStatus
+from app.schemas.jsend import JSendResponse, JSendStatus, jsend_success, jsend_fail, jsend_error
 from app.schemas.auth import (
     UserRegister,
     UserLogin,
@@ -15,7 +16,6 @@ from app.schemas.auth import (
     LogoutResponse
 )
 
-# TODO: core security belum dibuat
 from app.core.security import (
     get_password_hash,
     verify_password,
@@ -43,7 +43,7 @@ logger = get_loggers()[0] # Ambil system logger untuk logging di auth
 async def register_user(
     user_data: UserRegister,
     db: AsyncSession = Depends(get_db)
-) -> JSendResponse[UserResponse]:
+) -> JSONResponse:
     '''
     Register pengguna baru sesuai tech spec 7.3
     
@@ -61,11 +61,9 @@ async def register_user(
                 "Registration Failed - NIM already exists",
                 extra={"event_type": "AUTH_REGISTRATION_FAILED", "nim": user_data.nim}
             )
-            return JSendResponse[LoginResponse](
-                status=JSendStatus.FAIL,
+            return jsend_fail(
                 code=status.HTTP_400_BAD_REQUEST,
                 message="NIM already registered",
-                data=None
             )
         
         # Kalau belum ada, buat user baru
@@ -85,8 +83,7 @@ async def register_user(
             "User registered successfully",
             extra={"event_type": "AUTH_REGISTER_SUCCESS", "user_id": new_user.user_id}
         )
-        return JSendResponse[LoginResponse](
-            status=JSendStatus.SUCCESS,
+        return jsend_success(
             code=status.HTTP_201_CREATED,
             message="User registered successfully",
             data=LoginResponse(
@@ -100,22 +97,18 @@ async def register_user(
             f"Database integrity error during registration: {str(e)}",
             extra={"event_type": "AUTH_REGISTER_ERROR"}
         )
-        return JSendResponse[LoginResponse](
-            status=JSendStatus.ERROR,
+        return jsend_error(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Database error during registration",
-            data=None
         )
     except Exception as e:
         logger.error(
             f"Unexpected error during registration: {str(e)}",
             extra={"event_type": "AUTH_REGISTER_ERROR"}
         )
-        return JSendResponse[LoginResponse](
-            status=JSendStatus.ERROR,
+        return jsend_error(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Unexpected error during registration",
-            data=None
         )
 
 @router.post(
@@ -127,7 +120,7 @@ async def register_user(
 async def login_user(
     login_data: UserLogin,
     db: AsyncSession = Depends(get_db)
-) -> JSendResponse[LoginResponse]:
+) -> JSONResponse:
     '''
     Login pengguna sesuai tech spec 7.3
     
@@ -147,11 +140,9 @@ async def login_user(
                 "Login Failed - Invalid credentials",
                 extra={"event_type": "AUTH_LOGIN_FAILED", "nim": login_data.nim}
             )
-            return JSendResponse[LoginResponse](
-                status=JSendStatus.FAIL,
+            return jsend_fail(
                 code=status.HTTP_401_UNAUTHORIZED,
-                message="Invalid NIM or password",
-                data=None
+                message="Invalid NIM or password"
             )
         
         # Login berhasil, buat JWT
@@ -160,8 +151,7 @@ async def login_user(
             "User logged in successfully",
             extra={"event_type": "AUTH_LOGIN_SUCCESS", "user_id": user.user_id}
         )
-        return JSendResponse[LoginResponse](
-            status=JSendStatus.SUCCESS,
+        return jsend_success(
             code=status.HTTP_200_OK,
             message="Login successful",
             data=LoginResponse(
@@ -175,11 +165,9 @@ async def login_user(
             f"Unexpected error during login: {str(e)}",
             extra={"event_type": "AUTH_LOGIN_ERROR"}
         )
-        return JSendResponse[LoginResponse](
-            status=JSendStatus.ERROR,
+        return jsend_error(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="Unexpected error during login",
-            data=None
         )
 
 @router.post(
@@ -190,7 +178,7 @@ async def login_user(
 )
 async def logout_user(
     current_user: User = Depends(get_current_user),
-) -> JSendResponse[LogoutResponse]:
+) -> JSONResponse:
     '''
     Logout pengguna sesuai tech spec 7.3
     
@@ -202,8 +190,7 @@ async def logout_user(
         f"Logged out user: {current_user.user_id}",
         extra={"event_type": "AUTH_LOGOUT", "user_id": current_user.user_id}
     )
-    return JSendResponse[LogoutResponse](
-        status=JSendStatus.SUCCESS,
+    return jsend_success(
         code=status.HTTP_200_OK,
         message="Successfully logged out",
         data=LogoutResponse(message="Successfully logged out")
@@ -217,7 +204,7 @@ async def logout_user(
 )
 async def get_me(
     current_user: User = Depends(get_current_user),
-) -> JSendResponse[UserResponse]:
+) -> JSONResponse:
     '''
     Get profil pengguna saat ini sesuai tech spec 7.3
     
@@ -227,8 +214,7 @@ async def get_me(
         f"Fetched profile for user: {current_user.user_id}",
         extra={"event_type": "AUTH_GET_PROFILE", "user_id": current_user.user_id}
     )
-    return JSendResponse[UserResponse](
-        status=JSendStatus.SUCCESS,
+    return jsend_success(
         code=status.HTTP_200_OK,
         message="User profile fetched successfully",
         data=UserResponse.model_validate(current_user)
@@ -244,7 +230,7 @@ async def update_me(
     user_update: UserUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-) -> JSendResponse[UserResponse]:
+) -> JSONResponse:
     '''
     Update profil pengguna saat ini sesuai tech spec 7.3
     
@@ -262,11 +248,9 @@ async def update_me(
                     "Profile Update Failed - Incorrect old password",
                     extra={"event_type": "AUTH_UPDATE_PROFILE_FAILED", "user_id": current_user.user_id}
                 )
-                return JSendResponse[UserResponse](
-                    status=JSendStatus.FAIL,
+                return jsend_fail(
                     code=status.HTTP_400_BAD_REQUEST,
-                    message="Incorrect old password",
-                    data=None
+                    message="Incorrect old password"
                 )
             current_user.password_hash = get_password_hash(user_update.new_password)
         
@@ -278,8 +262,7 @@ async def update_me(
             f"Updated profile for user: {current_user.user_id}",
             extra={"event_type": "AUTH_UPDATE_PROFILE_SUCCESS", "user_id": current_user.user_id}
         )
-        return JSendResponse[UserResponse](
-            status=JSendStatus.SUCCESS,
+        return jsend_success(
             code=status.HTTP_200_OK,
             message="User profile updated successfully",
             data=UserResponse.model_validate(current_user)
@@ -290,9 +273,7 @@ async def update_me(
             f"Unexpected error during profile update: {str(e)}",
             extra={"event_type": "AUTH_UPDATE_PROFILE_ERROR", "user_id": current_user.user_id}
         )
-        return JSendResponse[UserResponse](
-            status=JSendStatus.ERROR,
+        return jsend_error(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Unexpected error during profile update",
-            data=None
+            message="Unexpected error during profile update"
         )
