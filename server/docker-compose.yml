@@ -8,10 +8,6 @@ services:
     restart: always
     env_file:
       - .env
-    environment:
-      POSTGRES_USER: ${DB_USER:-equilibria_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_password}
-      POSTGRES_DB: ${DB_NAME:-equilibria_db}
     ports:
       - "5432:5432"
     volumes:
@@ -35,16 +31,6 @@ services:
       - "8000:8000"
     env_file:
       - .env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${DB_USER:-equilibria_user}:${DB_PASSWORD:-secure_password}@db:5432/${DB_NAME:-equilibria_db}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_secret}
-      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
-      SANDBOX_DB_ROLE: ${SANDBOX_DB_ROLE:-sandbox_executor}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      PYTHONPATH: /app
-      LOG_DIR: /app/logs
-      SYSLOG_DIR: /app/logs/syslogs
-      ASSLOG_DIR: /app/logs/asslogs
     volumes:
       - .:/app
       - ./logs/syslogs:/app/logs/syslogs
