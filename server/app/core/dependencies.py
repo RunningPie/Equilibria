@@ -16,6 +16,10 @@ from app.db.session import get_db
 from app.db.models import User
 from sqlalchemy.future import select
 
+from app.core.logging_config import get_loggers
+
+logger = get_loggers()[0]
+
 # === Pake HTTP Bearer token scheme ===
 oauth2_scheme = HTTPBearer(
     scheme_name="JWT",
@@ -43,6 +47,9 @@ async def get_current_user(token: str = Depends(extract_token), db=Depends(get_d
     async def some_route(current_user: User = Depends(get_current_user)):
         ...
     '''
+    
+    logger.info(f"Get Current User Token: {token}")
+    
     # exception utk reuse
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

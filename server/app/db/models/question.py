@@ -87,6 +87,9 @@ class Question(Base):
         "PeerSession",
         back_populates="question"
     )
+    
+    def get_distance(self, target_difficulty: float) -> float:
+        return abs(self.current_difficulty - target_difficulty)
 
     def __repr__(self):
         return f"<Question(question_id='{self.question_id}', D={self.current_difficulty})>"

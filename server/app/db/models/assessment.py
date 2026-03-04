@@ -4,6 +4,7 @@ Sesuai Technical Specifications v2 Section 3.1 Tables assessment_logs & peer_ses
 """
 from sqlalchemy import Column, String, Float, Integer, Boolean, Text, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql.json import JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.base import Base
@@ -107,6 +108,59 @@ class AssessmentLog(Base):
         """Calculate theta change for stagnation detection."""
         return self.theta_after - self.theta_before
 
+class PreTestSession(Base):
+    __tablename__ = "pretest_sessions"
+    
+    # Primary Key - UUID for session identifier
+    session_id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        nullable=False
+    )
+    
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    
+    current_question_index = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+    
+    answers = Column(
+        JSONB, # isinya: {question_id: is_correct}
+        nullable=False,
+        default=dict
+    )
+    
+    total_questions = Column(
+        Integer,
+        nullable=False,
+        default=5
+    )
+    
+    current_theta = Column(
+        Float,
+        nullable=False,
+        default=0.0
+    )
+    
+    started_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+    
+    completed_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+    
 
 class PeerSession(Base):
     """
