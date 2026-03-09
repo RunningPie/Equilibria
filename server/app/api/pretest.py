@@ -19,6 +19,7 @@ from app.db.models import User
 from app.db.models import Question
 from app.db.models.assessment import PreTestSession
 from app.core.sandbox_executor import SandboxExecutionError, compare_query_results
+from app.core.elo_engine import calculate_initial_theta
 
 router = APIRouter(
     prefix="/pretest",
@@ -26,25 +27,6 @@ router = APIRouter(
 )
 
 logger = get_loggers()[0]
-
-# === Helper Functions ===
-def calculate_initial_theta(correct_count: int)->float:
-    
-    # mengikuti elo rating catur
-    # novice dibuat 10000
-    base_rating = 1000.0
-    
-    # titik tengah jumlah soal
-    baseline_correct = 2.5
-    
-    # diset 160 karena dalam kasus simpangan
-    # maksimum, maka +- 400
-    multiplier = 160.0
-    
-    adjustment = (correct_count - baseline_correct) * multiplier
-    theta = base_rating + adjustment
-    # CLAMP
-    return max(0, min(1500, theta))
 
 @router.post(
     "/start",
