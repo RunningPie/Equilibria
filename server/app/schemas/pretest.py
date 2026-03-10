@@ -50,7 +50,7 @@ class PreTestQuestion(BaseModel):
     
 class PreTestResult(BaseModel):
     session_id: UUID = Field(..., example="123e4567-e89b-12d3-a456-426614174000")
-    theta_initial: Optional[float] = Field(None, example=0.0)
+    theta_initial: Optional[float] = Field(None, ge=500, le=1500)
     has_completed_pretest: bool = Field(..., example=False)
     total_correct: int = Field(..., example=0)
     total_questions: int = Field(default=5)

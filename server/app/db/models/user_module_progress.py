@@ -1,0 +1,56 @@
+'''
+Junction table untuk lock status modul per user
+'''
+from sqlalchemy import Column, Boolean, DateTime, ForeignKey, PrimaryKeyConstraint, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+from app.db.base import Base
+
+class UserModuleProgress(Base):
+
+    __tablename__ = "user_module_progress"
+    
+    # Composite PK
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        primary_key=True
+    )
+    
+    module_id = Column(
+        String(5),
+        ForeignKey("modules.module_id", ondelete="CASCADE"),
+        nullable=False,
+        primary_key=True
+    )
+    
+    # Status penyelesaian modul
+    is_completed = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+    
+    # Akses pertama
+    started_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+    
+    # Waktu penyelesaian
+    completed_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+    
+    # Relasi
+    user = relationship("User", back_populates="module_progress")
+    module = relationship("Module", back_populates="user_progress")
+    
+    def __repr__(self):
+        return f"<UserModuleProgress(user_id={self.user_id}, module_id={self.module_id})>"
+    
+    

@@ -3,8 +3,10 @@ Module Model - Merepresentasikan tabel modules di skema public.
 Sesuai Technical Specifications v2 Section 3.1 Table modules.
 """
 from sqlalchemy import Column, String, Float, Boolean, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base import Base
+from server.app.db.models import user_module_progress
 
 
 class Module(Base):
@@ -53,23 +55,29 @@ class Module(Base):
         Text,
         nullable=True
     )
-
-    # Lock Status - Requires previous module completion
-    is_locked = Column(
-        Boolean,
-        default=False,
-        nullable=False
-    )
-
+    
     # Relationships
     questions = relationship(
         "Question",
         back_populates="module",
         cascade="all, delete-orphan"
     )
+    
+    user_progress = relationship(
+        "UserModuleProgress",
+        back_populates="module",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Module(module_id='{self.module_id}', title='{self.title}')>"
+
+    def is_unlocked_for_user(self, user_id: UUID) -> bool:
+        # CH01 selalu unlocked:
+        if self.module_id == "CH01":
+            return True
+        
+        return False
 
     @property
     def difficulty_range(self) -> tuple:

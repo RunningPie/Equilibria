@@ -8,6 +8,7 @@ from app.schemas.jsend import jsend_success, jsend_error
 from app.core.dependencies import get_current_user
 from app.db.models.user import User
 from app.db.models.module import Module
+from server.app.db.models.user_module_progress import UserModuleProgress
 
 router = APIRouter(prefix="/modules", tags=["Modules"])
 
@@ -24,15 +25,42 @@ async def list_modules(
         result = await db.execute(select(Module).order_by(Module.module_id))
         modules = result.scalars().all()
         
-        data = [
-            {
-                "module_id": m.module_id,
-                "title": m.title,
-                "description": m.description,
-                "is_locked": m.is_locked,
-                "difficulty_range": [m.difficulty_min, m.difficulty_max]
-            } for m in modules
-        ]
+        # Cek progress user
+        progress_result = await db.execute(
+            select(UserModuleProgress).where(
+                UserModuleProgress.user_id == current_user.user_id
+            )
+        )
+        user_progress = {p.module_id: p for p in progress_result.scalars().all()}
+        
+        data = []
+        
+        previous_completed = True
+        
+        for module in modules:
+            if module.module_id == "CH01":
+                is_locked = False
+            else:
+                is_locked = not previous_completed
+                
+            progress = user_progress.get(module.module_id)
+            is_completed = progress.is_completed if progress else False
+            
+            if is_completed:
+                previous_completed = True
+            elif not is_locked:
+                # bisa diakses tapi blm beres
+                previous_completed = False
+        
+            data.append(
+                {
+                    "module_id": module.module_id,
+                    "title": module.title,
+                    "description": module.description,
+                    "is_locked": is_locked,
+                    "difficulty_range": [module.difficulty_min, module.difficulty_max]
+                }
+            )
         
         return jsend_success(
             code=HTTP_200_OK,
