@@ -2,13 +2,19 @@
 Assessment Log & Peer Session Models.
 Sesuai Technical Specifications v2 Section 3.1 Tables assessment_logs & peer_sessions.
 """
-from sqlalchemy import Column, String, Float, Integer, Boolean, Text, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Float, Integer, Boolean, Text, DateTime, ForeignKey, Enum, text
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.dialects.postgresql.json import JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 import uuid
+import enum
+
+class AssessmentSessionStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+    ABANDONED = "ABANDONED"
 
 
 class AssessmentLog(Base):
@@ -274,3 +280,66 @@ class PeerSession(Base):
         
         helpful_score = 1.0 if self.is_helpful else 0.0
         return (0.5 * self.system_score) + (0.5 * helpful_score)
+    
+class AssessmentSession(Base):
+    
+    __tablename__ = "assessment_sessions"
+    
+    session_id = Column(
+        UUID(as_uuid=True),
+        nullable=False,
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    
+    user = relationship(
+        "User",
+        back_populates="assessment_sessions"
+    )
+    
+    module_id = Column(
+        String(5),
+        ForeignKey("modules.module_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    ) 
+    
+    module = relationship(
+        "Module",
+        back_populates="assessment_sessions"
+    )
+    
+    question_ids_served = Column(
+        ARRAY(String(10)),
+        server_default=text("'{}'"),
+        nullable=False,
+        index=True
+    )
+    
+    status = Column(
+        Enum(
+            AssessmentSessionStatus,
+            name="assessment_session_status",
+            create_constraint=True,
+        ),
+        nullable=False,
+        server_default=AssessmentSessionStatus.ACTIVE.value,
+    )
+    
+    started_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+    
+    ended_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
