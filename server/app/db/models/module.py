@@ -6,7 +6,7 @@ from sqlalchemy import Column, String, Float, Boolean, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base import Base
-from server.app.db.models import user_module_progress
+from app.db.models import user_module_progress
 
 
 class Module(Base):

@@ -17,6 +17,8 @@ from app.core.config import settings
 from app.core.logging_config import get_loggers
 from app.db.models import User
 from app.db.models import Question
+from app.db.models.module import Module
+from app.db.models.user_module_progress import UserModuleProgress
 from app.db.models.assessment import PreTestSession
 from app.core.sandbox_executor import SandboxExecutionError, compare_query_results
 from app.core.elo_engine import calculate_initial_theta
@@ -48,7 +50,7 @@ async def start_pretest(
             )
         
         # Cek apakah ada session yang belum selesai
-        pretest_session = await db.execute(select(PreTestSession).where(PreTestSession.user_id == current_user.user_id).where(PreTestSession.completed_at is None))
+        pretest_session = await db.execute(select(PreTestSession).where(PreTestSession.user_id == current_user.user_id).where(PreTestSession.completed_at.is_(None)))
         pretest_session = pretest_session.scalar_one_or_none()
         if pretest_session:
             # return existing pretest session
@@ -99,7 +101,7 @@ async def get_current_question(
 )-> JSONResponse:
     try:
         # Get current question
-        pretest_session = await db.execute(select(PreTestSession).where(PreTestSession.user_id == current_user.user_id).where(PreTestSession.completed_at is None))
+        pretest_session = await db.execute(select(PreTestSession).where(PreTestSession.user_id == current_user.user_id).where(PreTestSession.completed_at.is_(None)))
         pretest_session = pretest_session.scalar_one_or_none()
         if not pretest_session:
             return jsend_fail(
@@ -117,12 +119,13 @@ async def get_current_question(
         # ambil soal yang sudah dijawab
         answered_ids = list(pretest_session.answers.keys())
         
-        questions = await db.execute(
+        result = await db.execute(
             select(Question)
             .where(Question.question_id.notin_(answered_ids))
             .where(Question.is_active == True)
             .where(Question.module_id.in_(["CH01", "CH02", "CH03"]))
-        ).scalars().all()
+        )
+        questions = result.scalars().all()
         
         # adaptive selection of question (sesuai spek 6.2)
         if pretest_session.current_question_index == 0:
@@ -211,7 +214,6 @@ async def submit_pretest_answer(
         
         try:
             is_correct = await compare_query_results(
-                db=db,
                 user_query=payload.user_query,
                 target_query=question.target_query
             )
@@ -244,6 +246,26 @@ async def submit_pretest_answer(
             user = user.scalar_one()
             user.current_theta = initial_theta
             user.has_completed_pretest = True
+            
+            modules_result = await db.execute(select(Module.module_id))
+            all_module_ids = [mid for (mid,) in modules_result.all()]
+            
+            progress_result = await db.execute(
+                select(UserModuleProgress.module_id).where(
+                    UserModuleProgress.user_id == current_user.user_id
+                )
+            )
+            existing_module_ids = {mid for (mid,) in progress_result.all()}
+
+            missing_module_ids = [mid for mid in all_module_ids if mid not in existing_module_ids]
+            for module_id in missing_module_ids:
+                db.add(
+                    UserModuleProgress(
+                        user_id=current_user.user_id,
+                        module_id=module_id,
+                        is_completed=False,
+                    )
+                )
             
             message = "Pretest Completed. Init Theta Calculated"
             result_data = PreTestResult(

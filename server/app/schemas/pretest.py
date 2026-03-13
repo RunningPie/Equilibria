@@ -29,8 +29,8 @@ class PreTestSessionResponse(BaseModel):
     )
 
 class PreTestQuestion(BaseModel):
-    question_id: str = Field(..., min_length=10, max_length=10, example="CH01-Q001")
-    content: str = Field(..., min_length=10, example="What is the capital of France?")
+    question_id: str = Field(..., min_length=5, max_length=10, example="CH01-Q001")
+    content: str = Field(..., min_length=5, example="What is the capital of France?")
     question_number: int = Field(..., example=1)
     total_questions: int = Field(..., example=5)
     topic_tags: list[str] = Field(..., example=["JOIN", "GROUP BY"])
@@ -71,8 +71,8 @@ class PreTestResult(BaseModel):
 # === Schema Request ===
 
 class PreTestAnswerSubmit(BaseModel):
-    question_id: str = Field(..., min_length=10, max_length=10, example="CH01-Q001")
-    question_number: int = Field(..., example=1),
+    question_id: str = Field(..., min_length=5, max_length=10, example="CH01-Q001")
+    question_number: int = Field(..., example=1)
     user_query: str = Field(..., min_length=10, max_length=1000, example="SELECT * FROM users WHERE age > 18")
     
     model_config = ConfigDict(

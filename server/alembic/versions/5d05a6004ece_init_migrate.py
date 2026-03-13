@@ -1,8 +1,8 @@
-"""initial_schema
+"""init migrate
 
-Revision ID: effaa80f7535
+Revision ID: 5d05a6004ece
 Revises: 
-Create Date: 2026-02-22 11:09:41.940250
+Create Date: 2026-03-13 06:58:39.362860
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'effaa80f7535'
+revision: str = '5d05a6004ece'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -28,7 +28,6 @@ def upgrade() -> None:
     sa.Column('difficulty_min', sa.Float(), nullable=False),
     sa.Column('difficulty_max', sa.Float(), nullable=False),
     sa.Column('content_html', sa.Text(), nullable=True),
-    sa.Column('is_locked', sa.Boolean(), nullable=False),
     sa.PrimaryKeyConstraint('module_id')
     )
     op.create_table('users',
@@ -41,11 +40,24 @@ def upgrade() -> None:
     sa.Column('k_factor', sa.Integer(), nullable=False),
     sa.Column('has_completed_pretest', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.CheckConstraint('current_theta >= -3.0 AND current_theta <= 3.0', name='check_current_theta_range'),
+    sa.CheckConstraint('current_theta >= 0 AND current_theta <= 10000', name='check_current_theta_range'),
     sa.CheckConstraint('k_factor > 0', name='check_k_factor_positive'),
     sa.PrimaryKeyConstraint('user_id')
     )
     op.create_index(op.f('ix_users_nim'), 'users', ['nim'], unique=True)
+    op.create_table('pretest_sessions',
+    sa.Column('session_id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('current_question_index', sa.Integer(), nullable=False),
+    sa.Column('answers', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('total_questions', sa.Integer(), nullable=False),
+    sa.Column('current_theta', sa.Float(), nullable=False),
+    sa.Column('started_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['users.user_id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('session_id')
+    )
+    op.create_index(op.f('ix_pretest_sessions_user_id'), 'pretest_sessions', ['user_id'], unique=False)
     op.create_table('questions',
     sa.Column('question_id', sa.String(length=10), nullable=False),
     sa.Column('module_id', sa.String(length=5), nullable=False),
@@ -60,6 +72,16 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_questions_is_active'), 'questions', ['is_active'], unique=False)
     op.create_index(op.f('ix_questions_module_id'), 'questions', ['module_id'], unique=False)
+    op.create_table('user_module_progress',
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('module_id', sa.String(length=5), nullable=False),
+    sa.Column('is_completed', sa.Boolean(), nullable=False),
+    sa.Column('started_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['module_id'], ['modules.module_id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.user_id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('user_id', 'module_id')
+    )
     op.create_table('assessment_logs',
     sa.Column('log_id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('session_id', sa.UUID(), nullable=False),
@@ -113,9 +135,12 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_assessment_logs_session_id'), table_name='assessment_logs')
     op.drop_index(op.f('ix_assessment_logs_question_id'), table_name='assessment_logs')
     op.drop_table('assessment_logs')
+    op.drop_table('user_module_progress')
     op.drop_index(op.f('ix_questions_module_id'), table_name='questions')
     op.drop_index(op.f('ix_questions_is_active'), table_name='questions')
     op.drop_table('questions')
+    op.drop_index(op.f('ix_pretest_sessions_user_id'), table_name='pretest_sessions')
+    op.drop_table('pretest_sessions')
     op.drop_index(op.f('ix_users_nim'), table_name='users')
     op.drop_table('users')
     op.drop_table('modules')

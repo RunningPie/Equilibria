@@ -1,3 +1,4 @@
 # Custom docs
 docs/equ*
 .env
+.vscode

@@ -102,11 +102,17 @@ class User(Base):
         foreign_keys="PeerSession.reviewer_id",
         back_populates="reviewer"
     )
+    
+    module_progress: Mapped[list["UserModuleProgress"]] = relationship(
+        "UserModuleProgress",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
 
     # Table Constraints - Ensure theta dalam range valid
     __table_args__ = (
         CheckConstraint(
-            'current_theta >= -3.0 AND current_theta <= 3.0',
+            'current_theta >= 0 AND current_theta <= 10000',
             name='check_current_theta_range'
         ),
         CheckConstraint(

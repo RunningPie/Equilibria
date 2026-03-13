@@ -81,6 +81,8 @@ async def get_current_user(token: str = Depends(extract_token), db=Depends(get_d
         return user
     except JWTError:
         raise credentials_exception
+    except HTTPException:
+        raise
     except Exception as e:
         # log error lain yang mungkin terjadi
         raise HTTPException(
