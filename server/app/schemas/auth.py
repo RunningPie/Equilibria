@@ -56,9 +56,11 @@ class UserResponse(BaseModel):
     user_id: UUID
     nim: str
     full_name: str
-    current_theta: float
+    theta_individu: float
     theta_social: float
     k_factor: int
+    total_attempts: int
+    status: str
     has_completed_pretest: bool
     created_at: datetime
     
@@ -69,9 +71,11 @@ class UserResponse(BaseModel):
                 "user_id": "123e4567-e89b-12d3-a456-426614174000",
                 "nim": "1234567890",
                 "full_name": "John Doe",
-                "current_theta": 0.0,
-                "theta_social": 0.0,
-                "k_factor": 32,
+                "theta_individu": 1300.0,
+                "theta_social": 1300.0,
+                "k_factor": 30,
+                "total_attempts": 0,
+                "status": "ACTIVE",
                 "has_completed_pretest": False,
                 "created_at": "2024-01-01T12:00:00Z"
             }
@@ -95,9 +99,11 @@ class LoginResponse(BaseModel):
                     "user_id": "123e4567-e89b-12d3-a456-426614174000",
                     "nim": "1234567890",
                     "full_name": "John Doe Updated",
-                    "current_theta": 0.0,
-                    "theta_social": 0.0,
-                    "k_factor": 32,
+                    "theta_individu": 1300.0,
+                    "theta_social": 1300.0,
+                    "k_factor": 30,
+                    "total_attempts": 0,
+                    "status": "ACTIVE",
                     "has_completed_pretest": False,
                     "created_at": "2024-01-01T12:00:00Z"
                 }

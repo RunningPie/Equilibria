@@ -2,11 +2,10 @@
 Module Model - Merepresentasikan tabel modules di skema public.
 Sesuai Technical Specifications v2 Section 3.1 Table modules.
 """
-from sqlalchemy import Column, String, Float, Boolean, Text
+from sqlalchemy import Column, String, Float, Boolean, Text, Integer
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 from app.db.base import Base
-from app.db.models import user_module_progress
 
 
 class Module(Base):
@@ -18,47 +17,65 @@ class Module(Base):
     __tablename__ = "modules"
 
     # Primary Key - Module Code (e.g., 'CH01')
-    module_id = Column(
+    module_id: Mapped[str] = mapped_column(
         String(5),
         primary_key=True,
         nullable=False
     )
 
     # Display Name
-    title = Column(
+    title: Mapped[str] = mapped_column(
         String(255),
         nullable=False
     )
 
     # Module Overview/Description
-    description = Column(
+    description: Mapped[str] = mapped_column(
         Text,
         nullable=True
     )
 
     # Difficulty Range - Lower Bound (D_min)
-    difficulty_min = Column(
+    difficulty_min: Mapped[float] = mapped_column(
         Float,
         nullable=False,
         default=-3.0
     )
 
     # Difficulty Range - Upper Bound (D_max)
-    difficulty_max = Column(
+    difficulty_max: Mapped[float] = mapped_column(
         Float,
         nullable=False,
         default=3.0
     )
 
-    # HTML Content for Learning Material
-    content_html = Column(
+    # Threshold Unlock - minimum theta_individu yang diperlukan untuk mengakses modul ini
+    unlock_theta_threshold: Mapped[float] = mapped_column(
+        Float,
+        nullable=False
+    )
+
+    # Indeks Urutan untuk urutan tampilan
+    order_index: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False
+    )
+    
+    # Konten HTML untuk Materi Pembelajaran
+    content_html: Mapped[str] = mapped_column(
         Text,
         nullable=True
     )
     
-    # Relationships
+    # Relasi
     questions = relationship(
         "Question",
+        back_populates="module",
+        cascade="all, delete-orphan"
+    )
+    
+    assessment_sessions = relationship(
+        "AssessmentSession",
         back_populates="module",
         cascade="all, delete-orphan"
     )

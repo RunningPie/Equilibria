@@ -3,6 +3,7 @@ Question Model - Merepresentasikan tabel questions di skema public.
 Sesuai Technical Specifications v2 Section 3.1 Table questions.
 """
 from sqlalchemy import Column, String, Float, Boolean, Text, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 from app.db.base import Base
@@ -16,14 +17,14 @@ class Question(Base):
     __tablename__ = "questions"
 
     # Primary Key - Question Code (e.g., 'CH01-Q005')
-    question_id = Column(
+    question_id: Mapped[str] = mapped_column(
         String(10),
         primary_key=True,
         nullable=False
     )
 
     # Foreign Key to Modules
-    module_id = Column(
+    module_id: Mapped[str] = mapped_column(
         String(5),
         ForeignKey("modules.module_id", ondelete="CASCADE"),
         nullable=False,
@@ -31,40 +32,40 @@ class Question(Base):
     )
 
     # Question Narrative (HTML/Markdown)
-    content = Column(
+    content: Mapped[str] = mapped_column(
         Text,
         nullable=False
     )
 
     # Canonical Solution (for sandbox comparison)
-    target_query = Column(
+    target_query: Mapped[str] = mapped_column(
         Text,
         nullable=False
     )
 
     # Initial Difficulty - Manually calibrated post-pretest
-    initial_difficulty = Column(
+    initial_difficulty: Mapped[float] = mapped_column(
         Float,
         nullable=False,
         default=0.0
     )
 
     # Dynamic Difficulty - Updated via Elo Engine
-    current_difficulty = Column(
+    current_difficulty: Mapped[float] = mapped_column(
         Float,
         nullable=False,
         default=0.0
     )
 
     # Topic Tags for categorization (e.g., ['JOIN', 'GROUP BY'])
-    topic_tags = Column(
+    topic_tags: Mapped[list] = mapped_column(
         ARRAY(String),
         nullable=True,
         default=[]
     )
 
     # Availability Status
-    is_active = Column(
+    is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
         nullable=False,

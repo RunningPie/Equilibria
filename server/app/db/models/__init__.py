@@ -12,7 +12,11 @@ untuk tabel tersebut.
 from app.db.models.user import User
 from app.db.models.module import Module
 from app.db.models.question import Question
-from app.db.models.assessment import AssessmentLog, PeerSession
+from app.db.models.assessment_log import AssessmentLog
+from app.db.models.peer_session import PeerSession
+from app.db.models.pretest_session import PreTestSession
+from app.db.models.assessment_session import AssessmentSession
+from app.db.models.user_module_progress import UserModuleProgress
 
 # Eksport semua model untuk import eksternal
 __all__ = [
@@ -21,4 +25,7 @@ __all__ = [
     "Question",
     "AssessmentLog",
     "PeerSession",
+    "PreTestSession",
+    "AssessmentSession",
+    "UserModuleProgress",
 ]

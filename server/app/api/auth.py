@@ -16,15 +16,10 @@ from app.schemas.auth import (
     LogoutResponse
 )
 
-from app.core.security import (
-    get_password_hash,
-    verify_password,
-    create_access_token
-)
 from app.core.dependencies import get_current_user
 from app.core.config import settings
 from app.core.logging_config import get_loggers
-from app.db.models import user
+from app.core.security import get_password_hash, verify_password, create_access_token
 
 router = APIRouter(
     prefix="/auth",

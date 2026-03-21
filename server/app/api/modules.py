@@ -8,7 +8,7 @@ from app.schemas.jsend import jsend_success, jsend_error
 from app.core.dependencies import get_current_user
 from app.db.models.user import User
 from app.db.models.module import Module
-from server.app.db.models.user_module_progress import UserModuleProgress
+from app.db.models.user_module_progress import UserModuleProgress
 
 router = APIRouter(prefix="/modules", tags=["Modules"])
 
@@ -69,8 +69,8 @@ async def list_modules(
         )
         
     except Exception as e:
+        logger.info(f"[MODULES Endpoint] Error retrieving modules: {str(e)}")
         return jsend_error(
             code=HTTP_500_INTERNAL_SERVER_ERROR,
             message="Unexpected error retrieving modules"
-            logger.info(f"[MODULES Endpoint] Error retrieving modules: {str(e)}")
         )

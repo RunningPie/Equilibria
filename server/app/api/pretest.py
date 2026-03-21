@@ -19,9 +19,11 @@ from app.db.models import User
 from app.db.models import Question
 from app.db.models.module import Module
 from app.db.models.user_module_progress import UserModuleProgress
-from app.db.models.assessment import PreTestSession
+from app.db.models.pretest_session import PreTestSession
 from app.core.sandbox_executor import SandboxExecutionError, compare_query_results
+from app.core.question_selector import select_pretest_question
 from app.core.elo_engine import calculate_initial_theta
+from sqlalchemy.orm.attributes import flag_modified
 
 router = APIRouter(
     prefix="/pretest",
@@ -119,32 +121,19 @@ async def get_current_question(
         # ambil soal yang sudah dijawab
         answered_ids = list(pretest_session.answers.keys())
         
-        result = await db.execute(
-            select(Question)
-            .where(Question.question_id.notin_(answered_ids))
-            .where(Question.is_active == True)
-            .where(Question.module_id.in_(["CH01", "CH02", "CH03"]))
+        # Gunakan question selector yang sudah dioptimasi
+        selected_question = await select_pretest_question(
+            current_theta=pretest_session.current_theta,
+            question_index=pretest_session.current_question_index,
+            answered_ids=answered_ids,
+            db=db
         )
-        questions = result.scalars().all()
         
-        # adaptive selection of question (sesuai spek 6.2)
-        if pretest_session.current_question_index == 0:
-            # soal pertama: difficulty = 0.0
-            target_difficulty = 0.0
-        else:
-            # soal selanjutnya: difficulty = current_theta
-            target_difficulty = pretest_session.current_theta
-        
-        questions_sorted = sorted(questions, key=lambda x: x.get_distance(target_difficulty))
-        
-        # ambil top 5 paling dekat, lalu random 1
-        top_5 = questions_sorted[0:5]
-        if not top_5:
+        if not selected_question:
             return jsend_fail(
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 message="No available questions for pretest"
             )
-        selected_question = random.choice(top_5)
         
         return jsend_success(
             code=status.HTTP_200_OK,
@@ -224,7 +213,7 @@ async def submit_pretest_answer(
               
         current_answers = pretest_session.answers or {}
         current_answers[payload.question_id] = is_correct
-        pretest_session.answers = current_answers
+        flag_modified(pretest_session, 'answers')
         
         # 4. cek apakah ini soal terakhir
         is_completed = (pretest_session.current_question_index + 1) >= pretest_session.total_questions
@@ -244,7 +233,7 @@ async def submit_pretest_answer(
                 .where(User.user_id == current_user.user_id)
             )
             user = user.scalar_one()
-            user.current_theta = initial_theta
+            user.theta_individu = initial_theta
             user.has_completed_pretest = True
             
             modules_result = await db.execute(select(Module.module_id))

@@ -47,25 +47,38 @@ class User(Base):
         nullable=False
     )
 
-    # Elo Rating Individual - Normalized [-3.0, +3.0]
-    # Mapped[float] tells the type checker this is a float on instances
-    current_theta: Mapped[float] = mapped_column(
+    # Elo Rating Individual - Skala [0, 2000] mulai dari 1300
+    theta_individu: Mapped[float] = mapped_column(
         Float,
-        default=0.0,
+        default=1300.0,
         nullable=False
     )
 
-    # Social Contribution Score
+    # Social Elo Rating - Skala [0, 2000] mulai dari 1300
     theta_social: Mapped[float] = mapped_column(
         Float,
-        default=0.0,
+        default=1300.0,
         nullable=False
     )
 
-    # K-Factor untuk Elo update (decay piecewise)
+    # K-Factor untuk pembaruan Elo (Vesin piecewise: {30,20,15,10})
     k_factor: Mapped[int] = mapped_column(
         Integer,
-        default=32,
+        default=30,
+        nullable=False
+    )
+
+    # Total final attempts (untuk K-factor decay)
+    total_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False
+    )
+
+    # Status pengguna untuk trigger kolaborasi
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default='ACTIVE',
         nullable=False
     )
 
@@ -103,34 +116,45 @@ class User(Base):
         back_populates="reviewer"
     )
     
+    assessment_sessions: Mapped[list["AssessmentSession"]] = relationship(
+        "AssessmentSession",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    
     module_progress: Mapped[list["UserModuleProgress"]] = relationship(
         "UserModuleProgress",
         back_populates="user",
         cascade="all, delete-orphan"
     )
 
-    # Table Constraints - Ensure theta dalam range valid
+    # Batasan Tabel - Pastikan theta dalam rentang valid per Tech Specs v4.2
     __table_args__ = (
         CheckConstraint(
-            'current_theta >= 0 AND current_theta <= 10000',
-            name='check_current_theta_range'
+            'theta_individu >= 0 AND theta_individu <= 2000',
+            name='check_theta_individu_range'
+        ),
+        CheckConstraint(
+            'theta_social >= 0 AND theta_social <= 2000',
+            name='check_theta_social_range'
         ),
         CheckConstraint(
             'k_factor > 0',
             name='check_k_factor_positive'
         ),
+        CheckConstraint(
+            "status IN ('ACTIVE', 'NEEDS_PEER_REVIEW')",
+            name='check_status_valid'
+        ),
     )
 
     def __repr__(self) -> str:
-        return f"<User(nim='{self.nim}', theta={self.current_theta})>"
+        return f"<User(nim='{self.nim}', theta_ind={self.theta_individu}, theta_soc={self.theta_social})>"
 
     @property
-    def theta_final(self) -> float:
+    def theta_display(self) -> float:
         """
-        Menghitung final theta dengan bobot 50-50 (individual + social).
-        Sesuai Specs Section 6.6.
-        
-        With Mapped[float], the type checker now knows these are floats
-        on instances, so no type error occurs here.
+        Menghitung theta_display dengan weighted average per Tech Specs v4.2.
+        theta_display = (0.8 × θ_individu) + (0.2 × θ_social)
         """
-        return (0.5 * self.current_theta) + (0.5 * self.theta_social)
+        return (0.8 * self.theta_individu) + (0.2 * self.theta_social)
