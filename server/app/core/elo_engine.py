@@ -1,4 +1,5 @@
 import math
+import numpy
 from typing import Tuple
 
 # === Konstanta sesuai Vesin et al. (2022) - Tech Specs v4.2 ===
@@ -129,3 +130,21 @@ def update_elo_ratings(
     new_question_difficulty = max(RATING_MIN, min(RATING_MAX, new_question_difficulty))
     
     return new_student_rating, new_question_difficulty
+
+def detect_stagnation(last_5_theta_deltas: list[float]) -> bool:
+    """
+    Spesifikasi 6.3: Stagnation Detection (ε = 165)
+    
+    Dipanggil setelah setiap `/next`, menggunakan hanya baris `is_final_attempt = TRUE`.
+    
+    Input:
+        last_5_theta_deltas: List dari 5 delta theta terakhir (theta_after - theta_before)
+        
+    Output:
+        bool: True jika variance < 165 (stagnation detected), False otherwise
+    """
+    if len(last_5_theta_deltas) < 5:
+        return False
+    
+    variance = numpy.var(last_5_theta_deltas)  # population variance
+    return variance < 165

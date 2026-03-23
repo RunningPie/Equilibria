@@ -1054,14 +1054,13 @@ END FUNCTION
 
 ---
 
-### 6.3 Stagnation Detection (ε = 0.05)
+### 6.3 Stagnation Detection (ε = 165)
 
 Dipanggil setelah setiap `/next`, menggunakan hanya baris `is_final_attempt = TRUE`.
-
 ```python
 FUNCTION detect_stagnation(user_id, session_id):
     last_5_logs = QUERY assessment_logs
-        WHERE user_id   = user_id
+        WHERE user_id    = user_id
           AND session_id = session_id
           AND is_final_attempt = TRUE
         ORDER BY timestamp DESC
@@ -1073,7 +1072,7 @@ FUNCTION detect_stagnation(user_id, session_id):
     deltas   = [log.theta_after - log.theta_before FOR log IN last_5_logs]
     variance = numpy.var(deltas)   # population variance
 
-    RETURN variance < 0.05
+    RETURN variance < 165
 END FUNCTION
 ```
 
@@ -1664,13 +1663,30 @@ Frontend menampilkan konfirmasi kepada user. Jika user konfirmasi, frontend mema
 
 ## 13. APPENDIX: PARAMETER CALIBRATION LOG
 
-### 13.1 ε Stagnation Threshold
+### 13.1 ε Stagnation Threshold (Recalibrated)
+
+Nilai ε dikalibrasi ulang dari 0.05 (dirancang untuk skala Δθ ternormalisasi) ke **165** untuk menyesuaikan skala Elo [0, 2000] dengan K-factor K=30.
+
+**Distribusi Δθ expected pada skala [0, 2000] dengan K=30:**
+
+Δθ = K × (W − We)
+
+| Skenario | W | We | Δθ |
+|---|---|---|---|
+| Benar attempt 1, cepat | ~1.3 | ~0.4 | +27 |
+| Benar attempt 2, lambat | ~0.5 | ~0.5 | 0 |
+| Salah semua | 0.0 | ~0.6 | -18 |
+| Stuck (W ≈ We) | ~0.5 | ~0.5 | ±6 |
+
+**Kalibrasi empiris:**
 
 | Simulation Pattern | Δθ Sequence | Variance | Decision |
 |--------------------|-------------|----------|----------|
-| Real stagnation | [+2.1, -1.8, +2.3, -2.0, +1.9] | ~0.00015 (normalized) | Trigger |
-| Normal fluctuation | [+30, -20, +25, -18, +22] | ~330 | No trigger |
-| **Threshold** | — | **0.05** | **3× margin di atas stagnan nyata** |
+| Stagnasi nyata (user stuck, W ≈ We) | [-6, +6, -4, +5, -3] | ~25 | Harus trigger |
+| Fluktuasi normal (user berkembang) | [+27, -18, +15, -12, +20] | ~310 | Tidak boleh trigger |
+| **Threshold ε = 165** | — | **165** | **Midpoint [25, 310]** |
+
+**Justifikasi:** Nilai 165 dipilih sebagai titik tengah antara batas atas variance stagnasi nyata (~25) dan batas bawah variance fluktuasi normal (~310). Pendekatan midpoint ini lebih principled dibanding arbitrary multiplier karena memaksimalkan separasi antara kedua kelas (stagnasi vs normal) tanpa bias ke salah satu sisi. Dalam konteks lab study dengan K=30, ε=165 setara dengan kondisi di mana standar deviasi Δθ secara konsisten di bawah √165 ≈ 12.8 poin selama 5 soal berturutan.
 
 ### 13.2 K-Factor (Vesin et al. 2022, verbatim)
 

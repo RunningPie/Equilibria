@@ -1,404 +1,577 @@
+# server/scripts/seed_sql_questions.py
 """
-Script untuk seed database dengan soal-soal SQL CH01, CH02, & CH03
-Tech Specs v4.2 - Initial difficulty set untuk Item Selection Strategy
+SQL Questions Seeding Script
+Creates modules and SQL questions for adaptive assessment system.
+Usage: python -m scripts.seed_sql_questions
 """
-
 import asyncio
 import sys
-import os
+from pathlib import Path
 
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import async_session_factory
-from app.db.models import Question, Module
-from uuid import uuid4
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
+
+from app.db.base import Base
+from app.db.models.module import Module
+from app.db.models.question import Question
+from app.core.config import settings
+
+engine = create_async_engine(settings.DATABASE_URL, echo=False)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-async def seed_questions():
-    """Seed database dengan soal-soal SQL untuk CH01, CH02, dan CH03"""
+MODULES_DATA = [
+    {
+        "module_id": "CH01",
+        "title": "Basic Selection",
+        "description": "SELECT, WHERE, and basic filtering operations",
+        "difficulty_min": 1000.0,
+        "difficulty_max": 1400.0,
+        "unlock_theta_threshold": 0.0,  # Always open
+        "order_index": 1,
+        "content_html": "<h1>Basic Selection</h1><p>Learn SELECT and WHERE clauses...</p>",
+    },
+    {
+        "module_id": "CH02",
+        "title": "Aggregation",
+        "description": "GROUP BY, HAVING, and aggregate functions",
+        "difficulty_min": 1200.0,
+        "difficulty_max": 1600.0,
+        "unlock_theta_threshold": 1300.0,
+        "order_index": 2,
+        "content_html": "<h1>Aggregation</h1><p>Learn GROUP BY and aggregate functions...</p>",
+    },
+    {
+        "module_id": "CH03",
+        "title": "Advanced Querying",
+        "description": "JOINs, Subqueries, and CTEs",
+        "difficulty_min": 1400.0,
+        "difficulty_max": 1800.0,
+        "unlock_theta_threshold": 1600.0,
+        "order_index": 3,
+        "content_html": "<h1>Advanced Querying</h1><p>Learn JOINs and subqueries...</p>",
+    },
+]
+
+
+QUESTIONS_DATA = [
+    # CH01 - Basic Selection (Difficulty: 1000-1400) - 15 questions
+    {
+        "question_id": "CH01-Q001",
+        "module_id": "CH01",
+        "content": "Select all students with GPA greater than 3.5",
+        "target_query": "SELECT * FROM mahasiswa WHERE ipk > 3.5",
+        "initial_difficulty": 1050.0,
+        "current_difficulty": 1050.0,
+        "topic_tags": ["SELECT", "WHERE"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q002",
+        "module_id": "CH01",
+        "content": "Select student names from semester 5",
+        "target_query": "SELECT nama FROM mahasiswa WHERE angkatan = 2020",
+        "initial_difficulty": 1000.0,
+        "current_difficulty": 1000.0,
+        "topic_tags": ["SELECT", "WHERE"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q003",
+        "module_id": "CH01",
+        "content": "Find students with IPK between 3.0 and 4.0",
+        "target_query": "SELECT * FROM mahasiswa WHERE ipk BETWEEN 3.0 AND 4.0",
+        "initial_difficulty": 1100.0,
+        "current_difficulty": 1100.0,
+        "topic_tags": ["SELECT", "WHERE", "BETWEEN"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q004",
+        "module_id": "CH01",
+        "content": "Select students named Ahmad",
+        "target_query": "SELECT * FROM mahasiswa WHERE nama LIKE '%Ahmad%'",
+        "initial_difficulty": 1080.0,
+        "current_difficulty": 1080.0,
+        "topic_tags": ["SELECT", "WHERE", "LIKE"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q005",
+        "module_id": "CH01",
+        "content": "Count total students in database",
+        "target_query": "SELECT COUNT(*) FROM mahasiswa",
+        "initial_difficulty": 1150.0,
+        "current_difficulty": 1150.0,
+        "topic_tags": ["SELECT", "COUNT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q006",
+        "module_id": "CH01",
+        "content": "Select students from IF department ordered by GPA descending",
+        "target_query": "SELECT * FROM mahasiswa WHERE jurusan = 'IF' ORDER BY ipk DESC",
+        "initial_difficulty": 1120.0,
+        "current_difficulty": 1120.0,
+        "topic_tags": ["SELECT", "WHERE", "ORDER BY"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q007",
+        "module_id": "CH01",
+        "content": "Find students with GPA exactly 4.0",
+        "target_query": "SELECT * FROM mahasiswa WHERE ipk = 4.0",
+        "initial_difficulty": 1020.0,
+        "current_difficulty": 1020.0,
+        "topic_tags": ["SELECT", "WHERE"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q008",
+        "module_id": "CH01",
+        "content": "Select first 5 students ordered by NIM",
+        "target_query": "SELECT * FROM mahasiswa ORDER BY nim LIMIT 5",
+        "initial_difficulty": 1070.0,
+        "current_difficulty": 1070.0,
+        "topic_tags": ["SELECT", "ORDER BY", "LIMIT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q009",
+        "module_id": "CH01",
+        "content": "Find students not from IF department",
+        "target_query": "SELECT * FROM mahasiswa WHERE jurusan != 'IF'",
+        "initial_difficulty": 1030.0,
+        "current_difficulty": 1030.0,
+        "topic_tags": ["SELECT", "WHERE"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q010",
+        "module_id": "CH01",
+        "content": "Select student names and GPA for students with GPA above 3.0",
+        "target_query": "SELECT nama, ipk FROM mahasiswa WHERE ipk > 3.0",
+        "initial_difficulty": 1060.0,
+        "current_difficulty": 1060.0,
+        "topic_tags": ["SELECT", "WHERE"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q011",
+        "module_id": "CH01",
+        "content": "Find students from 2022 angkatan with GPA below 3.0",
+        "target_query": "SELECT * FROM mahasiswa WHERE angkatan = 2022 AND ipk < 3.0",
+        "initial_difficulty": 1090.0,
+        "current_difficulty": 1090.0,
+        "topic_tags": ["SELECT", "WHERE", "AND"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q012",
+        "module_id": "CH01",
+        "content": "Select distinct departments from students table",
+        "target_query": "SELECT DISTINCT jurusan FROM mahasiswa",
+        "initial_difficulty": 1130.0,
+        "current_difficulty": 1130.0,
+        "topic_tags": ["SELECT", "DISTINCT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q013",
+        "module_id": "CH01",
+        "content": "Find students whose names start with 'A'",
+        "target_query": "SELECT * FROM mahasiswa WHERE nama LIKE 'A%'",
+        "initial_difficulty": 1110.0,
+        "current_difficulty": 1110.0,
+        "topic_tags": ["SELECT", "WHERE", "LIKE"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q014",
+        "module_id": "CH01",
+        "content": "Count students in each department",
+        "target_query": "SELECT jurusan, COUNT(*) FROM mahasiswa GROUP BY jurusan",
+        "initial_difficulty": 1180.0,
+        "current_difficulty": 1180.0,
+        "topic_tags": ["SELECT", "COUNT", "GROUP BY"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH01-Q015",
+        "module_id": "CH01",
+        "content": "Select students with GPA greater than or equal to 3.75",
+        "target_query": "SELECT * FROM mahasiswa WHERE ipk >= 3.75",
+        "initial_difficulty": 1040.0,
+        "current_difficulty": 1040.0,
+        "topic_tags": ["SELECT", "WHERE"],
+        "is_active": True,
+    },
     
-    async with async_session_factory() as db:
+    # CH02 - Aggregation (Difficulty: 1200-1600) - 15 questions
+    {
+        "question_id": "CH02-Q001",
+        "module_id": "CH02",
+        "content": "Group students by angkatan and count each",
+        "target_query": "SELECT angkatan, COUNT(*) FROM mahasiswa GROUP BY angkatan",
+        "initial_difficulty": 1250.0,
+        "current_difficulty": 1250.0,
+        "topic_tags": ["GROUP BY", "COUNT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q002",
+        "module_id": "CH02",
+        "content": "Find average GPA per angkatan",
+        "target_query": "SELECT angkatan, AVG(ipk) FROM mahasiswa GROUP BY angkatan",
+        "initial_difficulty": 1300.0,
+        "current_difficulty": 1300.0,
+        "topic_tags": ["GROUP BY", "AVG"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q003",
+        "module_id": "CH02",
+        "content": "Find angkatan with more than 5 students",
+        "target_query": "SELECT angkatan, COUNT(*) FROM mahasiswa GROUP BY angkatan HAVING COUNT(*) > 5",
+        "initial_difficulty": 1450.0,
+        "current_difficulty": 1450.0,
+        "topic_tags": ["GROUP BY", "HAVING", "COUNT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q004",
+        "module_id": "CH02",
+        "content": "Get maximum and minimum GPA",
+        "target_query": "SELECT MAX(ipk), MIN(ipk) FROM mahasiswa",
+        "initial_difficulty": 1220.0,
+        "current_difficulty": 1220.0,
+        "topic_tags": ["MAX", "MIN"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q005",
+        "module_id": "CH02",
+        "content": "Sum total credits per student from FRS table",
+        "target_query": "SELECT nim, SUM(sks) FROM frs GROUP BY nim",
+        "initial_difficulty": 1350.0,
+        "current_difficulty": 1350.0,
+        "topic_tags": ["GROUP BY", "SUM"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q006",
+        "module_id": "CH02",
+        "content": "Find average credits per angkatan",
+        "target_query": "SELECT m.angkatan, AVG(f.sks) FROM mahasiswa m JOIN frs f ON m.nim = f.nim GROUP BY m.angkatan",
+        "initial_difficulty": 1420.0,
+        "current_difficulty": 1420.0,
+        "topic_tags": ["GROUP BY", "AVG", "JOIN"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q007",
+        "module_id": "CH02",
+        "content": "Count students per department with GPA above average",
+        "target_query": "SELECT jurusan, COUNT(*) FROM mahasiswa WHERE ipk > (SELECT AVG(ipk) FROM mahasiswa) GROUP BY jurusan",
+        "initial_difficulty": 1480.0,
+        "current_difficulty": 1480.0,
+        "topic_tags": ["GROUP BY", "COUNT", "SUBQUERY"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q008",
+        "module_id": "CH02",
+        "content": "Find departments with average GPA above 3.5",
+        "target_query": "SELECT jurusan, AVG(ipk) FROM mahasiswa GROUP BY jurusan HAVING AVG(ipk) > 3.5",
+        "initial_difficulty": 1380.0,
+        "current_difficulty": 1380.0,
+        "topic_tags": ["GROUP BY", "HAVING", "AVG"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q009",
+        "module_id": "CH02",
+        "content": "Count total courses taken by each student",
+        "target_query": "SELECT nim, COUNT(*) FROM frs GROUP BY nim",
+        "initial_difficulty": 1270.0,
+        "current_difficulty": 1270.0,
+        "topic_tags": ["GROUP BY", "COUNT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q010",
+        "module_id": "CH02",
+        "content": "Find students taking more than 3 courses",
+        "target_query": "SELECT nim, COUNT(*) FROM frs GROUP BY nim HAVING COUNT(*) > 3",
+        "initial_difficulty": 1400.0,
+        "current_difficulty": 1400.0,
+        "topic_tags": ["GROUP BY", "HAVING", "COUNT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q011",
+        "module_id": "CH02",
+        "content": "Calculate total SKS per department",
+        "target_query": "SELECT m.jurusan, SUM(f.sks) FROM mahasiswa m JOIN frs f ON m.nim = f.nim GROUP BY m.jurusan",
+        "initial_difficulty": 1430.0,
+        "current_difficulty": 1430.0,
+        "topic_tags": ["GROUP BY", "SUM", "JOIN"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q012",
+        "module_id": "CH02",
+        "content": "Find angkatan with highest average GPA",
+        "target_query": "SELECT angkatan, AVG(ipk) as avg_gpa FROM mahasiswa GROUP BY angkatan ORDER BY avg_gpa DESC LIMIT 1",
+        "initial_difficulty": 1460.0,
+        "current_difficulty": 1460.0,
+        "topic_tags": ["GROUP BY", "AVG", "ORDER BY", "LIMIT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q013",
+        "module_id": "CH02",
+        "content": "Count courses per semester for each student",
+        "target_query": "SELECT nim, semester, COUNT(*) FROM frs GROUP BY nim, semester",
+        "initial_difficulty": 1320.0,
+        "current_difficulty": 1320.0,
+        "topic_tags": ["GROUP BY", "COUNT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q014",
+        "module_id": "CH02",
+        "content": "Find students with total SKS above 10",
+        "target_query": "SELECT nim, SUM(sks) as total_sks FROM frs GROUP BY nim HAVING SUM(sks) > 10",
+        "initial_difficulty": 1370.0,
+        "current_difficulty": 1370.0,
+        "topic_tags": ["GROUP BY", "HAVING", "SUM"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH02-Q015",
+        "module_id": "CH02",
+        "content": "Calculate average SKS per course for each student",
+        "target_query": "SELECT nim, AVG(sks) FROM frs GROUP BY nim",
+        "initial_difficulty": 1280.0,
+        "current_difficulty": 1280.0,
+        "topic_tags": ["GROUP BY", "AVG"],
+        "is_active": True,
+    },
+    
+    # CH03 - Advanced Querying (Difficulty: 1400-1800) - 15 questions
+    {
+        "question_id": "CH03-Q001",
+        "module_id": "CH03",
+        "content": "Join mahasiswa with frs to get student courses",
+        "target_query": "SELECT m.nama, f.kode_mk FROM mahasiswa m JOIN frs f ON m.nim = f.nim",
+        "initial_difficulty": 1450.0,
+        "current_difficulty": 1450.0,
+        "topic_tags": ["JOIN", "SELECT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q002",
+        "module_id": "CH03",
+        "content": "Find students who haven't enrolled in any courses",
+        "target_query": "SELECT m.* FROM mahasiswa m LEFT JOIN frs f ON m.nim = f.nim WHERE f.nim IS NULL",
+        "initial_difficulty": 1550.0,
+        "current_difficulty": 1550.0,
+        "topic_tags": ["JOIN", "LEFT JOIN", "WHERE"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q003",
+        "module_id": "CH03",
+        "content": "Use subquery to find students above average GPA",
+        "target_query": "SELECT * FROM mahasiswa WHERE ipk > (SELECT AVG(ipk) FROM mahasiswa)",
+        "initial_difficulty": 1600.0,
+        "current_difficulty": 1600.0,
+        "topic_tags": ["SUBQUERY", "SELECT", "AVG"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q004",
+        "module_id": "CH03",
+        "content": "Use CTE to get angkatan statistics",
+        "target_query": "WITH stats AS (SELECT angkatan, COUNT(*) as cnt FROM mahasiswa GROUP BY angkatan) SELECT * FROM stats WHERE cnt > 5",
+        "initial_difficulty": 1650.0,
+        "current_difficulty": 1650.0,
+        "topic_tags": ["CTE", "WITH", "GROUP BY"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q005",
+        "module_id": "CH03",
+        "content": "Three-table join: mahasiswa, frs, matakuliah",
+        "target_query": "SELECT m.nama, mk.nama_mk FROM mahasiswa m JOIN frs f ON m.nim = f.nim JOIN matakuliah mk ON f.kode_mk = mk.kode_mk",
+        "initial_difficulty": 1500.0,
+        "current_difficulty": 1500.0,
+        "topic_tags": ["JOIN", "MULTI-JOIN"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q006",
+        "module_id": "CH03",
+        "content": "Find students taking courses with SKS above average",
+        "target_query": "SELECT DISTINCT m.nama FROM mahasiswa m JOIN frs f ON m.nim = f.nim WHERE f.sks > (SELECT AVG(sks) FROM frs)",
+        "initial_difficulty": 1580.0,
+        "current_difficulty": 1580.0,
+        "topic_tags": ["JOIN", "SUBQUERY", "DISTINCT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q007",
+        "module_id": "CH03",
+        "content": "Use correlated subquery to find top student per department",
+        "target_query": "SELECT * FROM mahasiswa m1 WHERE ipk = (SELECT MAX(ipk) FROM mahasiswa m2 WHERE m2.jurusan = m1.jurusan)",
+        "initial_difficulty": 1700.0,
+        "current_difficulty": 1700.0,
+        "topic_tags": ["SUBQUERY", "CORRELATED"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q008",
+        "module_id": "CH03",
+        "content": "Find students with GPA above department average",
+        "target_query": "SELECT * FROM mahasiswa m1 WHERE ipk > (SELECT AVG(ipk) FROM mahasiswa m2 WHERE m2.jurusan = m1.jurusan)",
+        "initial_difficulty": 1620.0,
+        "current_difficulty": 1620.0,
+        "topic_tags": ["SUBQUERY", "CORRELATED"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q009",
+        "module_id": "CH03",
+        "content": "Use EXISTS to find students enrolled in specific courses",
+        "target_query": "SELECT * FROM mahasiswa m WHERE EXISTS (SELECT 1 FROM frs f WHERE f.nim = m.nim AND f.kode_mk = 'IF2240')",
+        "initial_difficulty": 1680.0,
+        "current_difficulty": 1680.0,
+        "topic_tags": ["EXISTS", "SUBQUERY"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q010",
+        "module_id": "CH03",
+        "content": "Find students not taking any courses in current semester",
+        "target_query": "SELECT * FROM mahasiswa m WHERE NOT EXISTS (SELECT 1 FROM frs f WHERE f.nim = m.nim)",
+        "initial_difficulty": 1560.0,
+        "current_difficulty": 1560.0,
+        "topic_tags": ["NOT EXISTS", "SUBQUERY"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q011",
+        "module_id": "CH03",
+        "content": "Use window function to rank students by GPA",
+        "target_query": "SELECT nama, ipk, RANK() OVER (ORDER BY ipk DESC) as ranking FROM mahasiswa",
+        "initial_difficulty": 1720.0,
+        "current_difficulty": 1720.0,
+        "topic_tags": ["WINDOW", "RANK"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q012",
+        "module_id": "CH03",
+        "content": "Use window function to calculate GPA difference from average",
+        "target_query": "SELECT nama, ipk, ipk - AVG(ipk) OVER () as diff_from_avg FROM mahasiswa",
+        "initial_difficulty": 1750.0,
+        "current_difficulty": 1750.0,
+        "topic_tags": ["WINDOW", "AVG"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q013",
+        "module_id": "CH03",
+        "content": "Find students with GPA above median using window function",
+        "target_query": "SELECT * FROM (SELECT *, PERCENTILE_CONT(0.5) OVER () as median_gpa FROM mahasiswa) ranked WHERE ipk > median_gpa",
+        "initial_difficulty": 1780.0,
+        "current_difficulty": 1780.0,
+        "topic_tags": ["WINDOW", "PERCENTILE_CONT"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q014",
+        "module_id": "CH03",
+        "content": "Use multiple CTEs for complex analysis",
+        "target_query": "WITH dept_avg AS (SELECT jurusan, AVG(ipk) as avg_gpa FROM mahasiswa GROUP BY jurusan), student_rank AS (SELECT *, RANK() OVER (PARTITION BY jurusan ORDER BY ipk DESC) as rank FROM mahasiswa) SELECT sr.nama, sr.jurusan, sr.ipk, da.avg_gpa FROM student_rank sr JOIN dept_avg da ON sr.jurusan = da.jurusan WHERE sr.rank = 1",
+        "initial_difficulty": 1800.0,
+        "current_difficulty": 1800.0,
+        "topic_tags": ["CTE", "WINDOW", "JOIN"],
+        "is_active": True,
+    },
+    {
+        "question_id": "CH03-Q015",
+        "module_id": "CH03",
+        "content": "Find students with GPA above 75th percentile",
+        "target_query": "SELECT * FROM mahasiswa WHERE ipk > (SELECT PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY ipk) FROM mahasiswa)",
+        "initial_difficulty": 1740.0,
+        "current_difficulty": 1740.0,
+        "topic_tags": ["PERCENTILE_CONT", "SUBQUERY"],
+        "is_active": True,
+    },
+]
+
+
+async def seed_database():
+    async with AsyncSessionLocal() as session:
         try:
-            # Cek apakah modul sudah ada
-            existing_modules = await db.execute(
-                "SELECT module_id FROM modules WHERE module_id IN ('CH01', 'CH02', 'CH03')"
-            )
-            module_ids = [row[0] for row in existing_modules.fetchall()]
+            print("Starting SQL questions database seeding...")
             
-            # Buat modul jika belum ada
-            if 'CH01' not in module_ids:
-                ch01 = Module(
-                    module_id="CH01",
-                    title="Basic Selection",
-                    difficulty_min=-3.0,
-                    difficulty_max=3.0,
-                    unlock_theta_threshold=0.0,  # CH01 selalu terbuka
-                    order_index=1,
-                    content_html="<h1>Basic SQL Selection</h1><p>Learn basic SELECT statements...</p>"
+            # Seed Modules
+            print("Seeding modules...")
+            for module_data in MODULES_DATA:
+                result = await session.execute(
+                    text("SELECT 1 FROM modules WHERE module_id = :module_id"),
+                    {"module_id": module_data["module_id"]}
                 )
-                db.add(ch01)
-            
-            if 'CH02' not in module_ids:
-                ch02 = Module(
-                    module_id="CH02", 
-                    title="Aggregation",
-                    difficulty_min=-2.0,
-                    difficulty_max=2.0,
-                    unlock_theta_threshold=900.0,  # Butuh theta >= 900
-                    order_index=2,
-                    content_html="<h1>SQL Aggregation</h1><p>Learn GROUP BY, COUNT, SUM...</p>"
-                )
-                db.add(ch02)
-            
-            if 'CH03' not in module_ids:
-                ch03 = Module(
-                    module_id="CH03", 
-                    title="Advanced Queries",
-                    difficulty_min=-1.0,
-                    difficulty_max=1.0,
-                    unlock_theta_threshold=1100.0,  # Butuh theta >= 1100
-                    order_index=3,
-                    content_html="<h1>Advanced SQL Queries</h1><p>Learn subqueries, joins, window functions...</p>"
-                )
-                db.add(ch03)
-            
-            await db.commit()
-            
-            # Soal-soal CH01 - Basic Selection
-            ch01_questions = [
-                {
-                    "question_id": "CH01-001",
-                    "content": "Tampilkan semua data mahasiswa",
-                    "target_query": "SELECT * FROM mahasiswa;",
-                    "initial_difficulty": -2.0,
-                    "topic_tags": ["basic", "select", "all"]
-                },
-                {
-                    "question_id": "CH01-002", 
-                    "content": "Tampilkan NIM dan Nama mahasiswa dari jurusan IF",
-                    "target_query": "SELECT nim, nama FROM mahasiswa WHERE jurusan = 'IF';",
-                    "initial_difficulty": -1.5,
-                    "topic_tags": ["basic", "select", "where"]
-                },
-                {
-                    "question_id": "CH01-003",
-                    "content": "Tampilkan mahasiswa perempuan (gender = 'P')",
-                    "target_query": "SELECT * FROM mahasiswa WHERE gender = 'P';",
-                    "initial_difficulty": -1.0,
-                    "topic_tags": ["basic", "select", "where"]
-                },
-                {
-                    "question_id": "CH01-004",
-                    "content": "Tampilkan 5 mahasiswa pertama diurutkan berdasarkan NIM",
-                    "target_query": "SELECT * FROM mahasiswa ORDER BY nim LIMIT 5;",
-                    "initial_difficulty": -0.5,
-                    "topic_tags": ["basic", "select", "order", "limit"]
-                },
-                {
-                    "question_id": "CH01-005",
-                    "content": "Hitung jumlah mahasiswa di setiap jurusan",
-                    "target_query": "SELECT jurusan, COUNT(*) as jumlah FROM mahasiswa GROUP BY jurusan;",
-                    "initial_difficulty": 0.0,
-                    "topic_tags": ["aggregation", "count", "group"]
-                },
-                {
-                    "question_id": "CH01-006",
-                    "content": "Tampilkan mahasiswa dengan angkatan > 2020",
-                    "target_query": "SELECT * FROM mahasiswa WHERE angkatan > 2020;",
-                    "initial_difficulty": 0.5,
-                    "topic_tags": ["basic", "select", "where", "comparison"]
-                },
-                {
-                    "question_id": "CH01-007",
-                    "content": "Cari mahasiswa dengan nama mengandung 'Ahmad'",
-                    "target_query": "SELECT * FROM mahasiswa WHERE nama LIKE '%Ahmad%';",
-                    "initial_difficulty": 1.0,
-                    "topic_tags": ["basic", "select", "where", "like"]
-                },
-                {
-                    "question_id": "CH01-008",
-                    "content": "Tampilkan mahasiswa IF diurutkan descending berdasarkan angkatan",
-                    "target_query": "SELECT * FROM mahasiswa WHERE jurusan = 'IF' ORDER BY angkatan DESC;",
-                    "initial_difficulty": 1.5,
-                    "topic_tags": ["basic", "select", "where", "order"]
-                },
-                {
-                    "question_id": "CH01-009",
-                    "content": "Hitung rata-rata angkatan mahasiswa per jurusan",
-                    "target_query": "SELECT jurusan, AVG(angkatan) as rata_angkatan FROM mahasiswa GROUP BY jurusan;",
-                    "initial_difficulty": 2.0,
-                    "topic_tags": ["aggregation", "avg", "group"]
-                },
-                {
-                    "question_id": "CH01-010",
-                    "content": "Tampilkan jurusan dengan jumlah mahasiswa > 10",
-                    "target_query": "SELECT jurusan, COUNT(*) as jumlah FROM mahasiswa GROUP BY jurusan HAVING COUNT(*) > 10;",
-                    "initial_difficulty": 2.5,
-                    "topic_tags": ["aggregation", "count", "group", "having"]
-                }
-            ]
-            
-            # Soal-soal CH02 - Aggregation  
-            ch02_questions = [
-                {
-                    "question_id": "CH02-001",
-                    "content": "Hitung total SKS yang diambil setiap mahasiswa",
-                    "target_query": "SELECT nim, SUM(sks) as total_sks FROM frs GROUP BY nim;",
-                    "initial_difficulty": -1.0,
-                    "topic_tags": ["aggregation", "sum", "group"]
-                },
-                {
-                    "question_id": "CH02-002",
-                    "content": "Tampilkan mahasiswa dengan total SKS > 15",
-                    "target_query": "SELECT nim, SUM(sks) as total_sks FROM frs GROUP BY nim HAVING SUM(sks) > 15;",
-                    "initial_difficulty": -0.5,
-                    "topic_tags": ["aggregation", "sum", "group", "having"]
-                },
-                {
-                    "question_id": "CH02-003",
-                    "content": "Hitung rata-rata SKS per mahasiswa per semester",
-                    "target_query": "SELECT nim, semester, AVG(sks) as rata_sks FROM frs GROUP BY nim, semester;",
-                    "initial_difficulty": 0.0,
-                    "topic_tags": ["aggregation", "avg", "group"]
-                },
-                {
-                    "question_id": "CH02-004",
-                    "content": "Tampilkan matakuliah dengan SKS tertinggi",
-                    "target_query": "SELECT * FROM matakuliah ORDER BY sks DESC LIMIT 1;",
-                    "initial_difficulty": 0.5,
-                    "topic_tags": ["basic", "select", "order", "limit"]
-                },
-                {
-                    "question_id": "CH02-005",
-                    "content": "Hitung jumlah matakuliah per dosen",
-                    "target_query": "SELECT dosen_id, COUNT(*) as jumlah_matkul FROM matakuliah GROUP BY dosen_id;",
-                    "initial_difficulty": 1.0,
-                    "topic_tags": ["aggregation", "count", "group"]
-                },
-                {
-                    "question_id": "CH02-006",
-                    "content": "Tampilkan dosen dengan total SKS > 10",
-                    "target_query": "SELECT d.dosen_id, d.nama, SUM(m.sks) as total_sks FROM dosen d JOIN matakuliah m ON d.dosen_id = m.dosen_id GROUP BY d.dosen_id, d.nama HAVING SUM(m.sks) > 10;",
-                    "initial_difficulty": 1.5,
-                    "topic_tags": ["aggregation", "sum", "group", "having", "join"]
-                },
-                {
-                    "question_id": "CH02-007",
-                    "content": "Cari mahasiswa yang mengambil matakuliah dengan SKS >= 4",
-                    "target_query": "SELECT DISTINCT f.nim FROM frs f JOIN matakuliah m ON f.kode_mk = m.kode_mk WHERE m.sks >= 4;",
-                    "initial_difficulty": 2.0,
-                    "topic_tags": ["basic", "select", "join", "distinct"]
-                },
-                {
-                    "question_id": "CH02-008",
-                    "content": "Hitung statistik SKS per jurusan mahasiswa",
-                    "target_query": "SELECT m.jurusan, COUNT(DISTINCT f.nim) as jumlah_mhs, AVG(f.sks) as rata_sks FROM mahasiswa m JOIN frs f ON m.nim = f.nim GROUP BY m.jurusan;",
-                    "initial_difficulty": 2.5,
-                    "topic_tags": ["aggregation", "count", "avg", "group", "join"]
-                },
-                {
-                    "question_id": "CH02-009",
-                    "content": "Tampilkan 3 matakuliah dengan SKS tertinggi beserta nama dosen",
-                    "target_query": "SELECT m.kode_mk, m.nama, m.sks, d.nama as nama_dosen FROM matakuliah m JOIN dosen d ON m.dosen_id = d.dosen_id ORDER BY m.sks DESC LIMIT 3;",
-                    "initial_difficulty": 3.0,
-                    "topic_tags": ["basic", "select", "join", "order", "limit"]
-                },
-                {
-                    "question_id": "CH02-010",
-                    "content": "Cari mahasiswa yang mengambil semua matakuliah dari dosen tertentu",
-                    "target_query": "SELECT f.nim, COUNT(*) as jumlah_matkul FROM frs f JOIN matakuliah m ON f.kode_mk = m.kode_mk WHERE m.dosen_id = 'D001' GROUP BY f.nim HAVING COUNT(*) = (SELECT COUNT(*) FROM matakuliah WHERE dosen_id = 'D001');",
-                    "initial_difficulty": 3.5,
-                    "topic_tags": ["aggregation", "count", "group", "having", "subquery"]
-                }
-            ]
-            
-            # Soal-soal CH03 - Advanced Queries
-            ch03_questions = [
-                {
-                    "question_id": "CH03-001",
-                    "content": "Tampilkan mahasiswa dengan IPK di atas rata-rata jurusannya",
-                    "target_query": "SELECT m.* FROM mahasiswa m WHERE m.ipk > (SELECT AVG(ipk) FROM mahasiswa WHERE jurusan = m.jurusan);",
-                    "initial_difficulty": -0.5,
-                    "topic_tags": ["subquery", "comparison", "avg"]
-                },
-                {
-                    "question_id": "CH03-002",
-                    "content": "Cari mahasiswa yang tidak mengambil matakuliah sama sekali",
-                    "target_query": "SELECT m.* FROM mahasiswa m LEFT JOIN frs f ON m.nim = f.nim WHERE f.nim IS NULL;",
-                    "initial_difficulty": 0.0,
-                    "topic_tags": ["join", "left", "null"]
-                },
-                {
-                    "question_id": "CH03-003",
-                    "content": "Tampilkan ranking mahasiswa berdasarkan IPK per jurusan",
-                    "target_query": "SELECT jurusan, nim, nama, ipk, RANK() OVER (PARTITION BY jurusan ORDER BY ipk DESC) as ranking FROM mahasiswa;",
-                    "initial_difficulty": 0.5,
-                    "topic_tags": ["window", "rank", "partition"]
-                },
-                {
-                    "question_id": "CH03-004",
-                    "content": "Hitung selisih SKS antar semester untuk setiap mahasiswa",
-                    "target_query": "SELECT nim, semester, sks, LAG(sks) OVER (PARTITION BY nim ORDER BY semester) as sks_sebelumnya, sks - LAG(sks) OVER (PARTITION BY nim ORDER BY semester) as selisih FROM frs;",
-                    "initial_difficulty": 1.0,
-                    "topic_tags": ["window", "lag", "partition"]
-                },
-                {
-                    "question_id": "CH03-005",
-                    "content": "Cari mahasiswa dengan total SKS tertinggi di setiap angkatan",
-                    "target_query": "SELECT angkatan, nim, total_sks FROM (SELECT m.angkatan, f.nim, SUM(f.sks) as total_sks, RANK() OVER (PARTITION BY m.angkatan ORDER BY SUM(f.sks) DESC) as ranking FROM mahasiswa m JOIN frs f ON m.nim = f.nim GROUP BY m.angkatan, f.nim) ranked WHERE ranking = 1;",
-                    "initial_difficulty": 1.5,
-                    "topic_tags": ["subquery", "window", "rank", "join"]
-                },
-                {
-                    "question_id": "CH03-006",
-                    "content": "Tampilkan mahasiswa yang mengambil matakuliah dengan dosen yang sama di semester berbeda",
-                    "target_query": "SELECT DISTINCT f1.nim FROM frs f1 JOIN frs f2 ON f1.nim = f2.nim JOIN matakuliah m1 ON f1.kode_mk = m1.kode_mk JOIN matakuliah m2 ON f2.kode_mk = m2.kode_mk WHERE f1.semester != f2.semester AND m1.dosen_id = m2.dosen_id;",
-                    "initial_difficulty": 2.0,
-                    "topic_tags": ["join", "self", "distinct"]
-                },
-                {
-                    "question_id": "CH03-007",
-                    "content": "Hitung moving average SKS per mahasiswa (3 semester window)",
-                    "target_query": "SELECT nim, semester, sks, AVG(sks) OVER (PARTITION BY nim ORDER BY semester ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as moving_avg FROM frs;",
-                    "initial_difficulty": 2.5,
-                    "topic_tags": ["window", "avg", "rows"]
-                },
-                {
-                    "question_id": "CH03-008",
-                    "content": "Cari jurusan dengan peningkatan jumlah mahasiswa terbesar",
-                    "target_query": "SELECT jurusan, MAX(jumlah) - MIN(jumlah) as peningkatan FROM (SELECT jurusan, angkatan, COUNT(*) as jumlah FROM mahasiswa GROUP BY jurusan, angkatan) yearly GROUP BY jurusan ORDER BY peningkatan DESC LIMIT 1;",
-                    "initial_difficulty": 3.0,
-                    "topic_tags": ["subquery", "group", "max", "min"]
-                },
-                {
-                    "question_id": "CH03-009",
-                    "content": "Tampilkan mahasiswa dengan pattern SKS naik-turun naik",
-                    "target_query": "SELECT nim FROM (SELECT nim, sks, LAG(sks) OVER (PARTITION BY nim ORDER BY semester) as prev_sks, LAG(sks, 2) OVER (PARTITION BY nim ORDER BY semester) as prev2_sks FROM frs) pattern WHERE sks > prev_sks AND prev_sks < prev2_sks;",
-                    "initial_difficulty": 3.5,
-                    "topic_tags": ["window", "lag", "pattern"]
-                },
-                {
-                    "question_id": "CH03-010",
-                    "content": "Rekomendasikan teman sejurusan dengan pola SKS mirip",
-                    "target_query": "WITH user_patterns AS (SELECT nim, STRING_AGG(sks::text, ',' ORDER BY semester) as pattern FROM frs GROUP BY nim), similarity AS (SELECT p1.nim as user1, p2.nim as user2, similarity(p1.pattern, p2.pattern) as score FROM user_patterns p1 JOIN user_patterns p2 ON p1.nim != p2.nim AND p1.pattern = p2.pattern) SELECT s.user1, s.user2 FROM similarity s JOIN mahasiswa m1 ON s.user1 = m1.nim JOIN mahasiswa m2 ON s.user2 = m2.nim WHERE m1.jurusan = m2.jurusan;",
-                    "initial_difficulty": 4.0,
-                    "topic_tags": ["cte", "string_agg", "similarity"]
-                }
-            ]
-            
-            # Schema definition diambil dari init_sandbox.sql
-            schema_definition = """
--- Schema Database untuk Equilibria Sandbox
-CREATE TABLE IF NOT EXISTS sandbox.mahasiswa (
-    nim        VARCHAR(15)    PRIMARY KEY,
-    nama       VARCHAR(100)   NOT NULL,
-    jurusan    VARCHAR(10)    NOT NULL,
-    angkatan   INTEGER        NOT NULL,
-    ipk        DECIMAL(3,2)   CHECK (ipk BETWEEN 0.0 AND 4.0)
-);
-
-CREATE TABLE IF NOT EXISTS sandbox.matakuliah (
-    kode_mk    VARCHAR(10)    PRIMARY KEY,
-    nama       VARCHAR(100)   NOT NULL,
-    sks        INTEGER        NOT NULL,
-    dosen_id   VARCHAR(10)    NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS sandbox.dosen (
-    dosen_id   VARCHAR(10)    PRIMARY KEY,
-    nama       VARCHAR(100)   NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS sandbox.frs (
-    nim        VARCHAR(10)    NOT NULL,
-    kode_mk    VARCHAR(10)    NOT NULL,
-    semester   INTEGER        NOT NULL,
-    sks        INTEGER        NOT NULL,
-    nilai      VARCHAR(2)      NOT NULL,
-    PRIMARY KEY (nim, kode_mk, semester),
-    FOREIGN KEY (nim) REFERENCES sandbox.mahasiswa(nim),
-    FOREIGN KEY (kode_mk) REFERENCES sandbox.matakuliah(kode_mk)
-);
-"""
-            
-            # Insert soal CH01
-            for q_data in ch01_questions:
-                # Cek apakah soal sudah ada
-                existing = await db.execute(
-                    "SELECT question_id FROM questions WHERE question_id = :qid",
-                    {"qid": q_data["question_id"]}
-                )
+                if result.fetchone():
+                    print(f"  Module {module_data['module_id']} already exists")
+                    continue
                 
-                if not existing.fetchone():
-                    question = Question(
-                        question_id=q_data["question_id"],
-                        module_id="CH01",
-                        content=q_data["content"],
-                        target_query=q_data["target_query"],
-                        current_difficulty=q_data["initial_difficulty"],
-                        topic_tags=q_data["topic_tags"],
-                        is_active=True
-                    )
-                    db.add(question)
+                module = Module(**module_data)
+                session.add(module)
+                print(f"  Created module {module_data['module_id']}")
             
-            # Insert soal CH02
-            for q_data in ch02_questions:
-                # Cek apakah soal sudah ada
-                existing = await db.execute(
-                    "SELECT question_id FROM questions WHERE question_id = :qid", 
-                    {"qid": q_data["question_id"]}
+            await session.commit()
+            
+            # Seed Questions
+            print("Seeding questions...")
+            for question_data in QUESTIONS_DATA:
+                result = await session.execute(
+                    text("SELECT 1 FROM questions WHERE question_id = :question_id"),
+                    {"question_id": question_data["question_id"]}
                 )
+                if result.fetchone():
+                    print(f"  Question {question_data['question_id']} already exists")
+                    continue
                 
-                if not existing.fetchone():
-                    question = Question(
-                        question_id=q_data["question_id"],
-                        module_id="CH02",
-                        content=q_data["content"],
-                        target_query=q_data["target_query"],
-                        current_difficulty=q_data["initial_difficulty"],
-                        topic_tags=q_data["topic_tags"],
-                        is_active=True
-                    )
-                    db.add(question)
+                question = Question(**question_data)
+                session.add(question)
+                print(f"  Created question {question_data['question_id']} (D={question_data['current_difficulty']})")
             
-            # Insert soal CH03
-            for q_data in ch03_questions:
-                # Cek apakah soal sudah ada
-                existing = await db.execute(
-                    "SELECT question_id FROM questions WHERE question_id = :qid", 
-                    {"qid": q_data["question_id"]}
-                )
-                
-                if not existing.fetchone():
-                    question = Question(
-                        question_id=q_data["question_id"],
-                        module_id="CH03",
-                        content=q_data["content"],
-                        target_query=q_data["target_query"],
-                        current_difficulty=q_data["initial_difficulty"],
-                        topic_tags=q_data["topic_tags"],
-                        is_active=True
-                    )
-                    db.add(question)
+            await session.commit()
             
-            await db.commit()
-            
-            print("✅ Successfully seeded SQL questions:")
-            print(f"   - CH01 (Basic Selection): {len(ch01_questions)} questions")
-            print(f"   - CH02 (Aggregation): {len(ch02_questions)} questions") 
-            print(f"   - CH03 (Advanced Queries): {len(ch03_questions)} questions")
-            print(f"   - Total: {len(ch01_questions) + len(ch02_questions) + len(ch03_questions)} questions")
-            print("🎯 Difficulty ranges: CH01 [-2.0, 2.5], CH02 [-1.0, 3.5], CH03 [-0.5, 4.0]")
+            # Summary
+            print("\n" + "=" * 50)
+            print("SQL QUESTIONS SEEDING COMPLETED")
+            print("=" * 50)
+            print(f"Modules: {len(MODULES_DATA)}")
+            print(f"Questions: {len(QUESTIONS_DATA)}")
+            print(f"CH01 Questions: {len([q for q in QUESTIONS_DATA if q['module_id'] == 'CH01'])}")
+            print(f"CH02 Questions: {len([q for q in QUESTIONS_DATA if q['module_id'] == 'CH02'])}")
+            print(f"CH03 Questions: {len([q for q in QUESTIONS_DATA if q['module_id'] == 'CH03'])}")
+            print(f"Difficulty Range: 1000 - 1800 (Elo Scale)")
+            print("=" * 50)
             
         except Exception as e:
-            print(f"❌ Error seeding questions: {e}")
-            await db.rollback()
+            await session.rollback()
+            print(f"\nSeeding failed: {e}")
             raise
 
 
 if __name__ == "__main__":
-    print("🚀 Starting SQL questions seed...")
-    asyncio.run(seed_questions())
-    print("✅ Seeding completed!")
+    asyncio.run(seed_database())

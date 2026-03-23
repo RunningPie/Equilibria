@@ -141,3 +141,39 @@ class SubmitResult(BaseModel):
             }
         }
     )
+
+
+class NextResult(BaseModel):
+    """Response dari POST /session/{id}/next"""
+    session_id: UUID = Field(..., description="ID session")
+    question_id: str = Field(..., description="ID soal berikutnya")
+    module_id: str = Field(..., description="ID modul")
+    content: str = Field(..., description="Teks pertanyaan berikutnya")
+    current_difficulty: float = Field(..., description="Difficulty soal saat ini")
+    attempt_count: int = Field(..., description="Jumlah attempt untuk soal ini (dimulai dari 1)")
+    max_attempts: int = Field(..., description="Maksimal attempt (3)")
+    theta_before: Optional[float] = Field(None, description="Theta sebelum update dari soal yang baru saja diselesaikan")
+    theta_after: Optional[float] = Field(None, description="Theta setelah update dari soal yang baru saja diselesaikan")
+    previous_question_id: Optional[str] = Field(None, description="ID soal yang baru saja diselesaikan")
+    theta_change: Optional[float] = Field(None, description="Perubahan theta (theta_after - theta_before)")
+    stagnation_detected: bool = Field(False, description="Apakah stagnation terdeteksi (variance < 165)")
+    
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "session_id": "123e4567-e89b-12d3-a456-426614174000",
+                "question_id": "CH01-002",
+                "module_id": "CH01",
+                "content": "Tampilkan mahasiswa dengan IPK tertinggi",
+                "current_difficulty": 1350.0,
+                "attempt_count": 1,
+                "max_attempts": 3,
+                "theta_before": 1300.0,
+                "theta_after": 1325.0,
+                "previous_question_id": "CH01-001",
+                "theta_change": 25.0,
+                "stagnation_detected": False
+            }
+        }
+    )

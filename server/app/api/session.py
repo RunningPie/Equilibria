@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
+from sqlalchemy import text
 from datetime import datetime
 from uuid import uuid4
 
@@ -20,18 +21,18 @@ from starlette.status import (
 
 from app.schemas.session import (
     SessionStartRequest, SessionStartResult, QuestionResponse,
-    SessionStatus, SubmitRequest, SubmitResult
+    SessionStatus, SubmitRequest, SubmitResult, NextResult
 )
 from app.schemas.jsend import JSendResponse, jsend_success, jsend_fail, jsend_error
 from app.db.session import get_db
 from app.core.dependencies import get_current_user
 from app.core.config import settings
-from app.core.logging_config import get_loggers
+from app.core.logging_config import get_loggers, log_assessment_event
 from app.core.question_selector import select_next_question
 from app.core.sandbox_executor import compare_query_results
 from app.core.elo_engine import (
     calculate_success_rate, get_k_factor, update_elo_ratings,
-    BASE_RATING
+    detect_stagnation, BASE_RATING
 )
 from app.db.models import (
     User, Module, Question, AssessmentSession, 
@@ -43,7 +44,7 @@ router = APIRouter(
     tags=["Assessment Session"]
 )
 
-logger = get_loggers()[0]
+system_logger, assessment_logger = get_loggers()
 
 
 async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
@@ -80,7 +81,7 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
                     )
                     db.add(new_progress)
                     
-                    logger.info(
+                    system_logger.info(
                         f"Module unlocked: user={user.user_id}, module={module.module_id}, theta={user.theta_individu}",
                         extra={"event_type": "MODULE_UNLOCK", "module_id": module.module_id}
                     )
@@ -88,7 +89,7 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
         await db.commit()
         
     except Exception as e:
-        logger.error(
+        system_logger.error(
             f"Error checking module unlocks: {str(e)}",
             extra={"event_type": "MODULE_UNLOCK_ERROR", "user_id": str(user.user_id)}
         )
@@ -199,7 +200,7 @@ async def start_session(
             started_at=new_session.started_at
         )
         
-        logger.info(
+        system_logger.info(
             f"Session started: user={current_user.user_id}, module={session_request.module_id}, session={new_session.session_id}",
             extra={"event_type": "SESSION_START", "session_id": str(new_session.session_id)}
         )
@@ -211,7 +212,7 @@ async def start_session(
         )
         
     except Exception as e:
-        logger.error(
+        system_logger.error(
             f"Error starting session: {str(e)}",
             extra={"event_type": "SESSION_START_ERROR"}
         )
@@ -250,10 +251,13 @@ async def get_active_session(
         
         # Hitung jumlah soal yang sudah di-serve dan selesai
         questions_served = len(session.question_ids_served or [])
-        questions_completed = len([
-            qid for qid in (session.question_ids_served or [])
-            if qid in (session.completed_question_ids or [])
-        ])
+        
+        # Hitung questions completed dengan query ke assessment_logs
+        completed_result = await db.execute(
+            text("SELECT COUNT(DISTINCT question_id) FROM assessment_logs WHERE session_id = :sid AND is_final_attempt = TRUE"),
+            {"sid": session.session_id}
+        )
+        questions_completed = completed_result.scalar() or 0
         
         session_status = SessionStatus(
             session_id=session.session_id,
@@ -275,7 +279,7 @@ async def get_active_session(
         )
         
     except Exception as e:
-        logger.error(
+        system_logger.error(
             f"Error getting active session: {str(e)}",
             extra={"event_type": "ACTIVE_SESSION_ERROR"}
         )
@@ -319,7 +323,7 @@ async def end_session(
         
         await db.commit()
         
-        logger.info(
+        system_logger.info(
             f"Session ended manually: session={session_id}",
             extra={"event_type": "SESSION_END_MANUAL", "session_id": session_id}
         )
@@ -331,7 +335,7 @@ async def end_session(
         )
         
     except Exception as e:
-        logger.error(
+        system_logger.error(
             f"Error ending session: {str(e)}",
             extra={"event_type": "SESSION_END_ERROR", "session_id": session_id}
         )
@@ -370,10 +374,13 @@ async def get_session_status(
         
         # Hitung jumlah soal yang sudah di-serve dan selesai
         questions_served = len(session.question_ids_served or [])
-        questions_completed = len([
-            qid for qid in (session.question_ids_served or [])
-            if qid in (session.completed_question_ids or [])
-        ])
+        
+        # Hitung questions completed dengan query ke assessment_logs
+        completed_result = await db.execute(
+            text("SELECT COUNT(DISTINCT question_id) FROM assessment_logs WHERE session_id = :sid AND is_final_attempt = TRUE"),
+            {"sid": session.session_id}
+        )
+        questions_completed = completed_result.scalar() or 0
         
         session_status = SessionStatus(
             session_id=session.session_id,
@@ -395,7 +402,7 @@ async def get_session_status(
         )
         
     except Exception as e:
-        logger.error(
+        system_logger.error(
             f"Error getting session status: {str(e)}",
             extra={"event_type": "SESSION_STATUS_ERROR", "session_id": session_id}
         )
@@ -408,22 +415,21 @@ async def get_session_status(
 @router.get(
     "/{session_id}/question",
     response_model=JSendResponse[QuestionResponse],
-    summary="Get next question",
-    description="Mendapatkan soal berikutnya menggunakan Item Selection Strategy"
+    summary="Get current question",
+    description="Mendapatkan soal saat ini. Jika tidak ada soal aktif, pilih soal baru."
 )
-async def get_next_question(
+async def get_current_question(
     session_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Mendapatkan soal berikutnya menggunakan Item Selection Strategy.
+    Mendapatkan soal saat ini atau memilih soal baru jika belum ada.
     
     Algoritma:
-    1. Filter soal berdasarkan module dan exclude yang sudah di-serve
-    2. Hitung distance = |difficulty - user_theta|
-    3. Ambil top 5 dengan distance terkecil
-    4. Random pick 1 dari top 5
+    1. Check if there is already an active question in this session
+    2. If yes, return the current question (read operation)
+    3. If no, select a new question and set it as current (write operation only when necessary)
     """
     try:
         # Cari session
@@ -441,10 +447,48 @@ async def get_next_question(
                 message="Active session not found"
             )
         
-        # Gunakan Item Selection Strategy
+        # Check if there is already an active question in this session
+        if session.current_question_id is not None:
+            # User is still working on this question (e.g., page refresh)
+            # Return the current question without modifying served_ids
+            question_result = await db.execute(
+                select(Question).where(Question.question_id == session.current_question_id)
+            )
+            current_question = question_result.scalar_one_or_none()
+            
+            if not current_question:
+                # Question not found, clear the invalid reference
+                session.current_question_id = None
+                session.current_question_attempt_count = 0
+                await db.commit()
+                # Fall through to select new question
+            else:
+                question_response = QuestionResponse(
+                    session_id=session.session_id,
+                    question_id=current_question.question_id,
+                    module_id=current_question.module_id,
+                    content=current_question.content,
+                    current_difficulty=current_question.current_difficulty,
+                    attempt_count=session.current_question_attempt_count + 1,
+                    max_attempts=3
+                )
+                
+                system_logger.info(
+                    f"Current question retrieved: session={session_id}, question={current_question.question_id}, attempts={session.current_question_attempt_count}",
+                    extra={"event_type": "CURRENT_QUESTION_RETRIEVED", "session_id": session_id, "question_id": current_question.question_id}
+                )
+                
+                return jsend_success(
+                    code=HTTP_200_OK,
+                    message="Current question retrieved successfully",
+                    data=question_response
+                )
+        
+        # If we reach here, we need to select a NEW question
+        # (Either session start OR previous question was finalized via /next)
         served_question_ids = session.question_ids_served or []
         selected_question = await select_next_question(
-            user_theta=current_user.theta_individu,  # Use current user theta
+            user_theta=current_user.theta_individu,
             module_id=session.module_id,
             served_question_ids=served_question_ids,
             db=db
@@ -461,10 +505,8 @@ async def get_next_question(
                 message="No more questions available. Session completed."
             )
         
-        # Update session dengan soal baru
-        if not session.question_ids_served:
-            session.question_ids_served = []
-        session.question_ids_served.append(selected_question.question_id)
+        # Update session to track this as the ACTIVE question
+        # But DO NOT add to served_ids yet! This happens only in /next
         session.current_question_id = selected_question.question_id
         session.current_question_attempt_count = 0
         
@@ -481,25 +523,25 @@ async def get_next_question(
                 max_attempts=3
             )
         
-        logger.info(
-            f"Question served: session={session_id}, question={selected_question.question_id}",
-            extra={"event_type": "QUESTION_SERVED", "session_id": session_id, "question_id": selected_question.question_id}
+        system_logger.info(
+            f"New question selected: session={session_id}, question={selected_question.question_id}",
+            extra={"event_type": "NEW_QUESTION_SELECTED", "session_id": session_id, "question_id": selected_question.question_id}
         )
         
         return jsend_success(
             code=HTTP_200_OK,
-            message="Question retrieved successfully",
+            message="New question selected successfully",
             data=question_response
         )
         
     except Exception as e:
-        logger.error(
-            f"Error getting next question: {str(e)}",
-            extra={"event_type": "GET_QUESTION_ERROR", "session_id": session_id}
+        system_logger.error(
+            f"Error getting current question: {str(e)}",
+            extra={"event_type": "GET_CURRENT_QUESTION_ERROR", "session_id": session_id}
         )
         return jsend_error(
             code=HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Unexpected error retrieving question"
+            message="Unexpected error retrieving current question"
         )
 
 
@@ -562,12 +604,12 @@ async def submit_answer(
         
         # Eksekusi sandbox
         try:
-            is_correct = compare_query_results(
+            is_correct = await compare_query_results(
                 submit_data.user_query, 
                 question.target_query
             )
         except Exception as sandbox_error:
-            logger.error(
+            system_logger.error(
                 f"Sandbox execution error: {str(sandbox_error)}",
                 extra={"event_type": "SANDBOX_ERROR", "session_id": session_id}
             )
@@ -643,10 +685,8 @@ async def submit_answer(
             assessment_log.difficulty_before = question.current_difficulty
             assessment_log.difficulty_after = new_difficulty
             
-            # Tandai question sebagai completed
-            if not session.completed_question_ids:
-                session.completed_question_ids = []
-            session.completed_question_ids.append(submit_data.question_id)
+            # Question sudah ditandai completed lewat assessment_log is_final_attempt
+            # Tidak perlu tracking completed_question_ids di session
             
             # Reset current question
             session.current_question_id = None
@@ -670,7 +710,7 @@ async def submit_answer(
             next_question_available = next_question is not None
         
         # Generate feedback
-        feedback = "Jawaban benar!" if is_correct else "Jawaban salah. Coba lagi!"
+        feedback = "Jawaban benar!" if is_correct else "Jawaban salah. Silakan lanjut ke soal berikutnya!"
         if not is_final:
             feedback += f" (Attempt {attempt_number}/3)"
         
@@ -684,9 +724,18 @@ async def submit_answer(
             next_question_available=next_question_available
         )
         
-        logger.info(
-            f"Answer submitted: session={session_id}, question={submit_data.question_id}, correct={is_correct}, final={is_final}",
-            extra={"event_type": "ANSWER_SUBMITTED", "session_id": session_id, "question_id": submit_data.question_id}
+        # Log assessment event using helper function
+        log_assessment_event(
+            user_id=str(current_user.user_id),
+            session_id=session_id,
+            question_id=submit_data.question_id,
+            theta_before=theta_before,
+            theta_after=theta_after,
+            is_correct=is_correct,
+            execution_time_ms=submit_data.execution_time_ms,
+            event_type="ANSWER_SUBMITTED",
+            attempt_number=attempt_number,
+            is_final_attempt=is_final
         )
         
         return jsend_success(
@@ -696,11 +745,254 @@ async def submit_answer(
         )
         
     except Exception as e:
-        logger.error(
+        system_logger.error(
             f"Error submitting answer: {str(e)}",
             extra={"event_type": "SUBMIT_ANSWER_ERROR", "session_id": session_id}
         )
         return jsend_error(
             code=HTTP_500_INTERNAL_SERVER_ERROR,
             message="Unexpected error submitting answer"
+        )
+
+
+@router.post(
+    "/{session_id}/next",
+    response_model=JSendResponse[NextResult],
+    summary="Finalize current question and get next question",
+    description="Menghitung Elo rating untuk soal saat ini (berdasarkan semua attempt) dan mendapatkan soal berikutnya"
+)
+async def get_next_question_endpoint(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> JSONResponse:
+    """
+    Finalisasi soal saat ini dan dapatkan soal berikutnya.
+    
+    Flow:
+    1. Validasi session ACTIVE milik user
+    2. Pastikan ada attempt pada soal saat ini (tidak boleh skip tanpa attempt)
+    3. Ambil semua attempt untuk soal ini dari assessment_logs
+    4. Hitung W (success rate) menggunakan Vesin Eq. 3
+    5. Update Elo rating untuk user dan question
+    6. Reset current_question_id (tandai soal lama sebagai completed)
+    7. Dapatkan soal baru dan update session
+    """
+    try:
+        # Cari session
+        result = await db.execute(
+            select(AssessmentSession)
+            .where(AssessmentSession.session_id == session_id)
+            .where(AssessmentSession.user_id == current_user.user_id)
+            .where(AssessmentSession.status == "ACTIVE")
+        )
+        session = result.scalar_one_or_none()
+        
+        if not session:
+            return jsend_fail(
+                code=HTTP_404_NOT_FOUND,
+                message="Active session not found"
+            )
+        
+        # Validasi: harus ada attempt pada soal saat ini
+        if not session.current_question_id:
+            return jsend_fail(
+                code=HTTP_400_BAD_REQUEST,
+                message="No current question to finalize. Please get a question first."
+            )
+        
+        if session.current_question_attempt_count == 0:
+            return jsend_fail(
+                code=HTTP_400_BAD_REQUEST,
+                message="Cannot finalize question without attempting it first."
+            )
+        
+        # Ambil semua attempt untuk soal ini
+        attempts_result = await db.execute(
+            select(AssessmentLog).where(
+                AssessmentLog.session_id == session.session_id,
+                AssessmentLog.question_id == session.current_question_id
+            ).order_by(AssessmentLog.attempt_number.asc())
+        )
+        attempts = attempts_result.scalars().all()
+        
+        if not attempts:
+            return jsend_fail(
+                code=HTTP_400_BAD_REQUEST,
+                message="No attempts found for current question."
+            )
+        
+        # Get question data
+        question_result = await db.execute(
+            select(Question).where(Question.question_id == session.current_question_id)
+        )
+        question = question_result.scalar_one_or_none()
+        
+        if not question:
+            return jsend_fail(
+                code=HTTP_404_NOT_FOUND,
+                message="Current question not found."
+            )
+        
+        # Hitung success rate (W) menggunakan Vesin Eq. 3
+        successful_attempts = sum(1 for attempt in attempts if attempt.is_correct)
+        total_attempts = len(attempts)
+        final_attempt = attempts[-1]  # Use final attempt for timing
+        
+        success_rate = calculate_success_rate(
+            successful_attempts=successful_attempts,
+            overall_attempts=total_attempts,
+            correct_tests=1 if final_attempt.is_correct else 0,
+            performed_tests=1,
+            time_used_ms=final_attempt.execution_time_ms or 300000,
+            time_limit_ms=300000
+        )
+        
+        # Update Elo rating
+        theta_before = current_user.theta_individu
+        k_factor = get_k_factor(current_user.total_attempts)
+        
+        new_theta, new_difficulty = update_elo_ratings(
+            student_rating=current_user.theta_individu,
+            question_difficulty=question.current_difficulty,
+            success_rate=success_rate,
+            k_factor=k_factor
+        )
+        
+        # Update user and question
+        current_user.theta_individu = new_theta
+        current_user.total_attempts += 1
+        current_user.k_factor = get_k_factor(current_user.total_attempts)
+        question.current_difficulty = new_difficulty
+        
+        # Update final attempt log dengan theta values
+        final_attempt.theta_before = theta_before
+        final_attempt.theta_after = new_theta
+        final_attempt.difficulty_before = question.current_difficulty
+        final_attempt.difficulty_after = new_difficulty
+        final_attempt.is_final_attempt = True
+        
+        # Reset current question (tandai sebagai completed)
+        session.current_question_id = None
+        session.current_question_attempt_count = 0
+        
+        # Check dan unlock modul baru
+        await check_and_unlock_modules(current_user, db)
+        
+        # Stagnation Detection - called after each /next endpoint
+        stagnation_detected = False
+        try:
+            # Get last 5 final attempts for this user and session
+            last_5_logs_result = await db.execute(
+                select(AssessmentLog).where(
+                    AssessmentLog.user_id == current_user.user_id,
+                    AssessmentLog.session_id == session.session_id,
+                    AssessmentLog.is_final_attempt == True
+                ).order_by(AssessmentLog.timestamp.desc()).limit(5)
+            )
+            last_5_logs = last_5_logs_result.scalars().all()
+            
+            # Calculate theta deltas
+            theta_deltas = []
+            for log in last_5_logs:
+                if log.theta_before is not None and log.theta_after is not None:
+                    theta_deltas.append(log.theta_after - log.theta_before)
+            
+            # Check for stagnation
+            stagnation_detected = detect_stagnation(theta_deltas)
+            
+            if stagnation_detected:
+                system_logger.info(
+                    f"Stagnation detected: user={current_user.user_id}, session={session_id}",
+                    extra={"event_type": "STAGNATION_DETECTED", "session_id": session_id}
+                )
+                # TODO: Implement peer review matching logic as per technical specs
+                # For now, just log the detection
+                
+        except Exception as e:
+            system_logger.error(
+                f"Error in stagnation detection: {str(e)}",
+                extra={"event_type": "STAGNATION_DETECTION_ERROR", "session_id": session_id}
+            )
+        
+        # Log assessment event for question finalization
+        log_assessment_event(
+            user_id=str(current_user.user_id),
+            session_id=session_id,
+            question_id=question.question_id,
+            theta_before=theta_before,
+            theta_after=new_theta,
+            is_correct=final_attempt.is_correct,
+            execution_time_ms=final_attempt.execution_time_ms or 0,
+            event_type="QUESTION_FINALIZED",
+            total_attempts=total_attempts,
+            success_rate=success_rate
+        )
+        
+        await db.commit()
+        
+        # Dapatkan soal berikutnya
+        served_question_ids = session.question_ids_served or []
+        selected_question = await select_next_question(
+            user_theta=current_user.theta_individu,
+            module_id=session.module_id,
+            served_question_ids=served_question_ids,
+            db=db
+        )
+        
+        if not selected_question:
+            # Tidak ada soal tersedia, selesaikan session
+            session.status = "COMPLETED"
+            session.ended_at = datetime.utcnow()
+            await db.commit()
+            
+            return jsend_fail(
+                code=HTTP_400_BAD_REQUEST,
+                message="No more questions available. Session completed."
+            )
+        
+        # Update session dengan soal baru
+        current_served = list(session.question_ids_served) if session.question_ids_served else []
+        current_served.append(selected_question.question_id)
+        session.question_ids_served = current_served
+        session.current_question_id = selected_question.question_id
+        session.current_question_attempt_count = 0
+        
+        await db.commit()
+        await db.refresh(session)
+        
+        next_result = NextResult(
+            session_id=session.session_id,
+            question_id=selected_question.question_id,
+            module_id=selected_question.module_id,
+            content=selected_question.content,
+            current_difficulty=selected_question.current_difficulty,
+            attempt_count=1,  # Always start from 1 for new question
+            max_attempts=3,
+            theta_before=theta_before,
+            theta_after=new_theta,
+            previous_question_id=question.question_id,
+            theta_change=new_theta - theta_before,
+            stagnation_detected=stagnation_detected
+        )
+        
+        system_logger.info(
+            f"Question finalized and next served: session={session_id}, prev_question={question.question_id}, next_question={selected_question.question_id}, theta_change={new_theta - theta_before:+.1f}",
+            extra={"event_type": "QUESTION_FINALIZED_NEXT", "session_id": session_id, "prev_question_id": question.question_id, "next_question_id": selected_question.question_id}
+        )
+        
+        return jsend_success(
+            code=HTTP_200_OK,
+            message="Question finalized and next question retrieved successfully",
+            data=next_result
+        )
+        
+    except Exception as e:
+        system_logger.error(
+            f"Error finalizing question and getting next: {str(e)}",
+            extra={"event_type": "FINALIZE_NEXT_ERROR", "session_id": session_id}
+        )
+        return jsend_error(
+            code=HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Unexpected error finalizing question and getting next"
         )
