@@ -157,6 +157,7 @@ class NextResult(BaseModel):
     previous_question_id: Optional[str] = Field(None, description="ID soal yang baru saja diselesaikan")
     theta_change: Optional[float] = Field(None, description="Perubahan theta (theta_after - theta_before)")
     stagnation_detected: bool = Field(False, description="Apakah stagnation terdeteksi (variance < 165)")
+    peer_session_created: bool = Field(False, description="Apakah peer session berhasil dibuat (hanya jika stagnation terdeteksi)")
     
     model_config = ConfigDict(
         from_attributes=True,

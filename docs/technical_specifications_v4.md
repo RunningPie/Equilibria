@@ -1054,27 +1054,52 @@ END FUNCTION
 
 ---
 
-### 6.3 Stagnation Detection (ε = 165)
+### 6.3 Stagnation Detection sebagai Deteksi Konvergensi Prematur
 
-Dipanggil setelah setiap `/next`, menggunakan hanya baris `is_final_attempt = TRUE`.
+**Landasan teoretis:** Vesin et al. (2022) secara empiris mengobservasi bahwa rating siswa
+konvergen setelah 7–10 soal (Fig. 12) — kondisi di mana theta siswa dan difficulty soal
+yang direkomendasikan saling terkunci pada level yang sama (*fixed point*), sehingga
+`We ≈ W` dan `Δθ → 0`. Dalam sistem ProTuS, konvergensi ini adalah tujuan karena tidak
+ada hierarki konten yang harus dilalui.
+
+Equilibria berbeda secara fundamental: pembelajaran dimodelkan mengikuti kurikulum
+universitas dengan hierarki chapter (CH01 → CH02 → CH03). Konvergensi yang terjadi
+sebelum user mencapai chapter tertinggi (CH03) diinterpretasikan sebagai
+**overpersonalization** — sistem terlalu mengoptimasi rekomendasi untuk level saat ini
+sehingga menghambat progres ke chapter berikutnya. Oleh karena itu, *fixed point* yang
+terdeteksi di CH01 atau CH02 memicu intervensi sosial untuk mendorong pertumbuhan
+yang tidak bisa lagi dicapai melalui mekanisme adaptif individual.
+
+Deteksi dilakukan dengan mengukur variance Δθ dari 5 soal final terakhir, **lintas sesi**
+(karena konvergensi Elo bersifat global, tidak per-sesi). Stagnation hanya dipicu jika user
+belum berada di chapter tertinggi (CH03).
 ```python
-FUNCTION detect_stagnation(user_id, session_id):
+FUNCTION detect_stagnation(user_id, current_module_id):
+    # Tidak ada stagnation jika user sudah di chapter tertinggi
+    # Konvergensi di CH03 adalah tujuan, bukan masalah
+    IF current_module_id == 'CH03':
+        RETURN FALSE
+
+    # Ambil 5 final attempt terakhir lintas sesi (konvergensi bersifat global)
     last_5_logs = QUERY assessment_logs
-        WHERE user_id    = user_id
-          AND session_id = session_id
+        WHERE user_id        = user_id
           AND is_final_attempt = TRUE
         ORDER BY timestamp DESC
         LIMIT 5
 
     IF COUNT(last_5_logs) < 5:
-        RETURN FALSE
+        RETURN FALSE   # Belum cukup data untuk deteksi
 
     deltas   = [log.theta_after - log.theta_before FOR log IN last_5_logs]
     variance = numpy.var(deltas)   # population variance
 
-    RETURN variance < 165
+    RETURN variance < 165   # ε = 165 (lihat Section 13.1)
 END FUNCTION
 ```
+
+**Catatan:** Stagnation detection tidak menggunakan filter `session_id` karena konvergensi
+Elo adalah properti akumulatif dari seluruh history user, bukan satu sesi. Ini konsisten
+dengan K-factor decay yang juga berbasis `total_attempts` global.
 
 **Post-stagnation action:**
 
@@ -1627,10 +1652,19 @@ Frontend menampilkan konfirmasi kepada user. Jika user konfirmasi, frontend mema
 
 ### 12.1 Controlled Lab Study Design
 
-- **Method:** One-Group Pretest-Posttest (Hake, 1999)
-- **Participants:** 10–15 mahasiswa STEI-K ITB
+- **Method:** Two-Group Pretest-Posttest dengan Stratified Assignment
+- **Participants:** 10–15 mahasiswa STEI-K ITB yang telah menyelesaikan mata kuliah
+  Pemodelan Basis Data (familiar dengan SQL, namun diasumsikan mengalami partial
+  forgetting)
+- **Group Assignment:** Stratified berdasarkan nilai mata kuliah (A/AB/B/BC/C) untuk
+  memastikan keseimbangan kemampuan awal antar grup. Keseimbangan diverifikasi
+  menggunakan theta_initial dari pretest (uji Mann-Whitney, target p > 0.05)
+- **Grup A (with intervention):** konvergensi prematur → peer review dipicu
+- **Grup B (without intervention):** konvergensi prematur → lanjut individual mode
 - **Duration:** 90–120 menit per sesi
 - **Location:** Lab environment (koneksi stabil)
+- **Study framing:** Proof-of-concept — tidak diklaim sebagai confirmatory study
+  karena keterbatasan ukuran sampel
 
 ### 12.2 Testing Phases
 
@@ -1645,11 +1679,26 @@ Frontend menampilkan konfirmasi kepada user. Jika user konfirmasi, frontend mema
 
 | Metric | Formula | Target |
 |--------|---------|--------|
-| Normalized Learning Gain | `g = (post - pre) / (100 - pre)` | g ≥ 0.3 |
-| Peer Feedback Quality | Rata-rata `system_score` dari semua peer_sessions | ≥ 0.6 |
-| Matching Validity | % pairs dengan `\|θ_ind_reviewer - θ_ind_requester\| ≥ 0.5σ` | 100% |
-| Elo Convergence | Soal ke-N saat variance Δθ stabil | ≤ 10 (Vesin 2022) |
+| Normalized Learning Gain | `g = (post - pre) / (100 - pre)` | g ≥ 0.3 (Hake 1999) |
+| Matching Validity | % peer pairs dengan `\|θ_ind_reviewer - θ_ind_requester\| ≥ 0.5σ` | 100% |
+| Premature Convergence Rate | % user yang mengalami variance Δθ < ε sebelum mencapai CH03 | Dicatat sebagai baseline, tidak ada target |
+| **Social Intervention Effectiveness** | % user yang berhasil unlock chapter berikutnya setelah intervensi sosial dipicu oleh konvergensi prematur | **> 50% (Grup A vs Grup B)** |
 | Response Time | API latency p95 | ≤ 500ms |
+
+**Catatan:** Peer Feedback Quality (`system_score`) dipertahankan sebagai metrik
+operasional internal untuk memvalidasi bahwa `theta_social` mendapat sinyal yang
+bermakna, namun tidak diklaim sebagai bukti efektivitas sistem secara keseluruhan.
+
+**Ablation study design:**
+Untuk mengisolasi kontribusi komponen kolaboratif, peserta dibagi menjadi dua kondisi:
+- **Kondisi A (with intervention):** konvergensi prematur → peer review dipicu
+- **Kondisi B (without intervention):** konvergensi prematur → lanjut individual mode
+
+Metrik utama yang dibandingkan: persentase user yang berhasil unlock chapter berikutnya
+dalam window waktu N soal setelah konvergensi prematur terdeteksi. Karena jumlah
+peserta terbatas (10–15), disarankan **within-subject design** — user yang sama mengalami
+kedua kondisi di chapter yang berbeda (counterbalanced) untuk mengontrol perbedaan
+kemampuan individual.
 
 ### 12.4 Risk Mitigation
 
@@ -1665,7 +1714,8 @@ Frontend menampilkan konfirmasi kepada user. Jika user konfirmasi, frontend mema
 
 ### 13.1 ε Stagnation Threshold (Recalibrated)
 
-Nilai ε dikalibrasi ulang dari 0.05 (dirancang untuk skala Δθ ternormalisasi) ke **165** untuk menyesuaikan skala Elo [0, 2000] dengan K-factor K=30.
+Nilai ε dikalibrasi ulang dari 0.05 (dirancang untuk skala Δθ ternormalisasi) ke **165**
+untuk menyesuaikan skala Elo [0, 2000] dengan K-factor K=30.
 
 **Distribusi Δθ expected pada skala [0, 2000] dengan K=30:**
 
@@ -1676,17 +1726,23 @@ Nilai ε dikalibrasi ulang dari 0.05 (dirancang untuk skala Δθ ternormalisasi)
 | Benar attempt 1, cepat | ~1.3 | ~0.4 | +27 |
 | Benar attempt 2, lambat | ~0.5 | ~0.5 | 0 |
 | Salah semua | 0.0 | ~0.6 | -18 |
-| Stuck (W ≈ We) | ~0.5 | ~0.5 | ±6 |
+| Fixed point (W ≈ We) | ~0.5 | ~0.5 | ±6 |
 
 **Kalibrasi empiris:**
 
 | Simulation Pattern | Δθ Sequence | Variance | Decision |
 |--------------------|-------------|----------|----------|
-| Stagnasi nyata (user stuck, W ≈ We) | [-6, +6, -4, +5, -3] | ~25 | Harus trigger |
+| Fixed point / konvergensi prematur | [-6, +6, -4, +5, -3] | ~25 | Harus trigger |
 | Fluktuasi normal (user berkembang) | [+27, -18, +15, -12, +20] | ~310 | Tidak boleh trigger |
 | **Threshold ε = 165** | — | **165** | **Midpoint [25, 310]** |
 
-**Justifikasi:** Nilai 165 dipilih sebagai titik tengah antara batas atas variance stagnasi nyata (~25) dan batas bawah variance fluktuasi normal (~310). Pendekatan midpoint ini lebih principled dibanding arbitrary multiplier karena memaksimalkan separasi antara kedua kelas (stagnasi vs normal) tanpa bias ke salah satu sisi. Dalam konteks lab study dengan K=30, ε=165 setara dengan kondisi di mana standar deviasi Δθ secara konsisten di bawah √165 ≈ 12.8 poin selama 5 soal berturutan.
+**Justifikasi:** Nilai 165 dipilih sebagai titik tengah antara batas atas variance konvergensi
+prematur (~25) dan batas bawah variance fluktuasi normal (~310). Threshold ini hanya
+relevan untuk chapter CH01 dan CH02 — konvergensi di CH03 tidak memicu intervensi
+karena merupakan tujuan pembelajaran (lihat Section 6.3).
+
+Dalam konteks lab study dengan K=30, ε=165 setara dengan kondisi di mana standar
+deviasi Δθ secara konsisten di bawah √165 ≈ 12.8 poin selama 5 soal berturutan.
 
 ### 13.2 K-Factor (Vesin et al. 2022, verbatim)
 

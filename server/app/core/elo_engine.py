@@ -2,6 +2,11 @@ import math
 import numpy
 from typing import Tuple
 
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import AssessmentLog
+
 # === Konstanta sesuai Vesin et al. (2022) - Tech Specs v4.2 ===
 BASE_RATING = 1300.0  # Rating awal semua siswa
 RATING_MIN = 0
@@ -131,20 +136,52 @@ def update_elo_ratings(
     
     return new_student_rating, new_question_difficulty
 
-def detect_stagnation(last_5_theta_deltas: list[float]) -> bool:
+async def detect_stagnation(
+    user_id: str,
+    current_module_id: str,
+    db: AsyncSession
+) -> bool:
     """
     Spesifikasi 6.3: Stagnation Detection (ε = 165)
-    
-    Dipanggil setelah setiap `/next`, menggunakan hanya baris `is_final_attempt = TRUE`.
-    
-    Input:
-        last_5_theta_deltas: List dari 5 delta theta terakhir (theta_after - theta_before)
-        
-    Output:
+
+    Dipanggil setelah setiap `/next`.
+    Mengambil 5 final attempt terakhir lintas sesi (konvergensi bersifat global).
+
+    Args:
+        user_id: ID user untuk query assessment_logs
+        current_module_id: ID modul saat ini (skip jika CH03)
+        db: AsyncSession untuk query database
+
+    Returns:
         bool: True jika variance < 165 (stagnation detected), False otherwise
     """
-    if len(last_5_theta_deltas) < 5:
+    # Tidak ada stagnation jika user sudah di chapter tertinggi
+    # Konvergensi di CH03 adalah tujuan, bukan masalah
+    if current_module_id == "CH03":
         return False
-    
-    variance = numpy.var(last_5_theta_deltas)  # population variance
-    return variance < 165
+
+    # Ambil 5 final attempt terakhir lintas sesi (konvergensi bersifat global)
+    result = await db.execute(
+        select(AssessmentLog)
+        .where(AssessmentLog.user_id == user_id)
+        .where(AssessmentLog.is_final_attempt == True)
+        .order_by(AssessmentLog.timestamp.desc())
+        .limit(5)
+    )
+    last_5_logs = result.scalars().all()
+
+    if len(last_5_logs) < 5:
+        return False  # Belum cukup data untuk deteksi
+
+    # Calculate theta deltas
+    deltas = [
+        log.theta_after - log.theta_before
+        for log in last_5_logs
+        if log.theta_before is not None and log.theta_after is not None
+    ]
+
+    if len(deltas) < 5:
+        return False
+
+    variance = numpy.var(deltas)  # population variance
+    return variance < 165  # ε = 165

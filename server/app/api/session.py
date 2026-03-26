@@ -34,9 +34,10 @@ from app.core.elo_engine import (
     calculate_success_rate, get_k_factor, update_elo_ratings,
     detect_stagnation, BASE_RATING
 )
+from app.core.peer_matching import find_heterogeneous_peer, create_peer_session
 from app.db.models import (
     User, Module, Question, AssessmentSession, 
-    AssessmentLog, UserModuleProgress
+    AssessmentLog, UserModuleProgress, PeerSession
 )
 
 router = APIRouter(
@@ -549,7 +550,7 @@ async def get_current_question(
     "/{session_id}/submit",
     response_model=JSendResponse[SubmitResult],
     summary="Submit answer",
-    description="Submit jawaban user dan update Elo rating"
+    description="Submit jawaban user. Finalisasi dan Elo update ditunda ke /next endpoint."
 )
 async def submit_answer(
     session_id: str,
@@ -564,8 +565,8 @@ async def submit_answer(
     1. Validasi question_id = current_question_id
     2. Eksekusi sandbox untuk check correctness
     3. Log attempt ke assessment_logs
-    4. Update session state
-    5. Update Elo rating jika final attempt
+    4. Update session attempt count
+    5. Finalisasi (Elo update) ditunda ke /next endpoint agar user lihat feedback dulu
     """
     try:
         # Cari session
@@ -626,6 +627,7 @@ async def submit_answer(
         is_final = is_correct or (attempt_number >= 3)
         
         # Log attempt
+        # Note: theta_before/after dan difficulty akan diisi di /next endpoint saat finalisasi
         assessment_log = AssessmentLog(
             session_id=session.session_id,
             user_id=current_user.user_id,
@@ -639,70 +641,17 @@ async def submit_answer(
         
         db.add(assessment_log)
         
-        # Update user dan session jika final attempt
-        theta_before = None
-        theta_after = None
-        
-        if is_final:
-            # Implementasi Elo update
-            theta_before = current_user.theta_individu
-            
-            # Hitung success rate menggunakan Vesin Eq. 3
-            success_rate = calculate_success_rate(
-                successful_attempts=1 if is_correct else 0,
-                overall_attempts=attempt_number,
-                correct_tests=1 if is_correct else 0,
-                performed_tests=1,
-                time_used_ms=submit_data.execution_time_ms,
-                time_limit_ms=300000  # 5 menit default
-            )
-            
-            # Get K-factor
-            current_user_total_attempts = current_user.total_attempts
-            k_factor = get_k_factor(current_user_total_attempts)
-            
-            # Update Elo rating
-            new_theta, new_difficulty = update_elo_ratings(
-                student_rating=current_user.theta_individu,
-                question_difficulty=question.current_difficulty,
-                success_rate=success_rate,
-                k_factor=k_factor
-            )
-            
-            theta_after = new_theta
-            
-            # Update user (session doesn't store theta)
-            current_user.theta_individu = new_theta
-            current_user.total_attempts += 1
-            current_user.k_factor = get_k_factor(current_user.total_attempts)
-            
-            # Update question difficulty
-            question.current_difficulty = new_difficulty
-            
-            # Update assessment log dengan theta values
-            assessment_log.theta_before = theta_before
-            assessment_log.theta_after = theta_after
-            assessment_log.difficulty_before = question.current_difficulty
-            assessment_log.difficulty_after = new_difficulty
-            
-            # Question sudah ditandai completed lewat assessment_log is_final_attempt
-            # Tidak perlu tracking completed_question_ids di session
-            
-            # Reset current question
-            session.current_question_id = None
-            session.current_question_attempt_count = 0
-            
-            # Check dan unlock modul baru
-            await check_and_unlock_modules(current_user, db)
+        # Finalisasi (Elo update) ditunda ke /next endpoint
+        # Single codepath untuk stagnation detection di /next endpoint
         
         await db.commit()
         
-        # Cek apakah masih ada soal tersedia
+        # Cek apakah masih ada soal tersedia (untuk info ke user)
         next_question_available = True
         if is_final:
             served_ids = session.question_ids_served or []
             next_question = await select_next_question(
-                user_theta=current_user.theta_individu,  # Use current user theta
+                user_theta=current_user.theta_individu,
                 module_id=session.module_id,
                 served_question_ids=served_ids,
                 db=db
@@ -719,8 +668,8 @@ async def submit_answer(
             is_final_attempt=is_final,
             attempt_number=attempt_number,
             feedback=feedback,
-            theta_before=theta_before,
-            theta_after=theta_after,
+            theta_before=None,  # Akan diisi di /next endpoint
+            theta_after=None,   # Akan diisi di /next endpoint
             next_question_available=next_question_available
         )
         
@@ -729,8 +678,8 @@ async def submit_answer(
             user_id=str(current_user.user_id),
             session_id=session_id,
             question_id=submit_data.question_id,
-            theta_before=theta_before,
-            theta_after=theta_after,
+            theta_before=None,  # Akan diisi di /next endpoint
+            theta_after=None,   # Akan diisi di /next endpoint
             is_correct=is_correct,
             execution_time_ms=submit_data.execution_time_ms,
             event_type="ANSWER_SUBMITTED",
@@ -879,39 +828,62 @@ async def get_next_question_endpoint(
         # Check dan unlock modul baru
         await check_and_unlock_modules(current_user, db)
         
-        # Stagnation Detection - called after each /next endpoint
+        # Stagnation Detection and Peer Matching - called after each /next endpoint
         stagnation_detected = False
+        peer_session_created = False
         try:
-            # Get last 5 final attempts for this user and session
-            last_5_logs_result = await db.execute(
-                select(AssessmentLog).where(
-                    AssessmentLog.user_id == current_user.user_id,
-                    AssessmentLog.session_id == session.session_id,
-                    AssessmentLog.is_final_attempt == True
-                ).order_by(AssessmentLog.timestamp.desc()).limit(5)
+            # Check for stagnation per Specification 6.3
+            stagnation_detected = await detect_stagnation(
+                user_id=current_user.user_id,
+                current_module_id=session.module_id,
+                db=db
             )
-            last_5_logs = last_5_logs_result.scalars().all()
-            
-            # Calculate theta deltas
-            theta_deltas = []
-            for log in last_5_logs:
-                if log.theta_before is not None and log.theta_after is not None:
-                    theta_deltas.append(log.theta_after - log.theta_before)
-            
-            # Check for stagnation
-            stagnation_detected = detect_stagnation(theta_deltas)
             
             if stagnation_detected:
                 system_logger.info(
                     f"Stagnation detected: user={current_user.user_id}, session={session_id}",
                     extra={"event_type": "STAGNATION_DETECTED", "session_id": session_id}
                 )
-                # TODO: Implement peer review matching logic as per technical specs
-                # For now, just log the detection
+                
+                # Peer Matching: Find heterogeneous peer per Section 6.4
+                peer = await find_heterogeneous_peer(current_user, db)
+                
+                if peer:
+                    # Create peer session linking requester and reviewer
+                    await create_peer_session(
+                        requester=current_user,
+                        reviewer=peer,
+                        question_id=question.question_id,
+                        db=db
+                    )
+                    peer_session_created = True
+                    
+                    assessment_logger.info(
+                        f"Peer session created for stagnation: "
+                        f"requester={current_user.user_id}, reviewer={peer.user_id}, "
+                        f"question={question.question_id}",
+                        extra={
+                            "event_type": "PEER_MATCH_SUCCESS",
+                            "requester_id": str(current_user.user_id),
+                            "reviewer_id": str(peer.user_id),
+                            "question_id": question.question_id,
+                            "session_id": session_id
+                        }
+                    )
+                else:
+                    peer_session_created = False
+                    assessment_logger.warning(
+                        f"No peer available for stagnated user: {current_user.user_id}",
+                        extra={
+                            "event_type": "PEER_MATCH_FAIL",
+                            "requester_id": str(current_user.user_id),
+                            "session_id": session_id
+                        }
+                    )
                 
         except Exception as e:
             system_logger.error(
-                f"Error in stagnation detection: {str(e)}",
+                f"Error in stagnation detection/peer matching: {str(e)}",
                 extra={"event_type": "STAGNATION_DETECTION_ERROR", "session_id": session_id}
             )
         
@@ -973,7 +945,8 @@ async def get_next_question_endpoint(
             theta_after=new_theta,
             previous_question_id=question.question_id,
             theta_change=new_theta - theta_before,
-            stagnation_detected=stagnation_detected
+            stagnation_detected=stagnation_detected,
+            peer_session_created=peer_session_created
         )
         
         system_logger.info(
