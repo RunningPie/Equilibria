@@ -97,6 +97,14 @@ class AssessmentLog(Base):
         nullable=True
     )
 
+    # Stagnation Detection Flag - TRUE jika stagnation terdeteksi pada attempt ini
+    # Hanya relevan jika is_final_attempt = TRUE
+    stagnation_detected: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
     # Sandbox Execution Result
     is_correct: Mapped[bool] = mapped_column(
         Boolean,

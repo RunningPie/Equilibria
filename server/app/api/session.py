@@ -32,7 +32,7 @@ from app.core.question_selector import select_next_question
 from app.core.sandbox_executor import compare_query_results
 from app.core.elo_engine import (
     calculate_success_rate, get_k_factor, update_elo_ratings,
-    detect_stagnation, BASE_RATING
+    detect_stagnation, check_fallback_trigger, BASE_RATING
 )
 from app.core.peer_matching import find_heterogeneous_peer, create_peer_session
 from app.db.models import (
@@ -831,56 +831,145 @@ async def get_next_question_endpoint(
         # Stagnation Detection and Peer Matching - called after each /next endpoint
         stagnation_detected = False
         peer_session_created = False
+        stagnation_source = None  # 'VARIANCE', 'FALLBACK', atau None
+        
         try:
-            # Check for stagnation per Specification 6.3
-            stagnation_detected = await detect_stagnation(
+            # === STAGNATION DETECTION LOGIC PER TECHNICAL SPEC v4 Section 6.3 ===
+            
+            # Step 1: Variance-based detection (primary) - untuk semua grup
+            variance_stagnation = await detect_stagnation(
                 user_id=current_user.user_id,
                 current_module_id=session.module_id,
                 db=db
             )
             
-            if stagnation_detected:
-                system_logger.info(
-                    f"Stagnation detected: user={current_user.user_id}, session={session_id}",
-                    extra={"event_type": "STAGNATION_DETECTED", "session_id": session_id}
+            if variance_stagnation:
+                stagnation_detected = True
+                stagnation_source = 'VARIANCE'
+            
+            # Step 2: Fallback trigger (secondary) - hanya jika variance tidak trigger
+            # dan hanya untuk Grup A
+            if not stagnation_detected and current_user.group_assignment == 'A':
+                # Query jumlah final attempts di module ini
+                final_attempts_result = await db.execute(
+                    select(AssessmentLog).where(
+                        AssessmentLog.user_id == current_user.user_id,
+                        AssessmentLog.module_id == session.module_id,
+                        AssessmentLog.is_final_attempt == True
+                    )
+                )
+                final_attempts_in_module = len(final_attempts_result.scalars().all())
+                
+                # Query next module dan check unlock status
+                current_module_result = await db.execute(
+                    select(Module).where(Module.module_id == session.module_id)
+                )
+                current_module = current_module_result.scalar_one_or_none()
+                
+                is_next_unlocked = True  # Default ke True (tidak trigger fallback)
+                if current_module and current_module.module_id != "CH03":
+                    next_module_result = await db.execute(
+                        select(Module).where(
+                            Module.order_index == current_module.order_index + 1
+                        )
+                    )
+                    next_module = next_module_result.scalar_one_or_none()
+                    if next_module:
+                        is_next_unlocked = (
+                            current_user.theta_individu >= next_module.unlock_theta_threshold
+                        )
+                
+                # Check fallback trigger
+                fallback_triggered = check_fallback_trigger(
+                    group_assignment=current_user.group_assignment,
+                    current_module_id=session.module_id,
+                    is_next_module_unlocked=is_next_unlocked,
+                    final_attempts_count_in_module=final_attempts_in_module
                 )
                 
-                # Peer Matching: Find heterogeneous peer per Section 6.4
-                peer = await find_heterogeneous_peer(current_user, db)
-                
-                if peer:
-                    # Create peer session linking requester and reviewer
-                    await create_peer_session(
-                        requester=current_user,
-                        reviewer=peer,
-                        question_id=question.question_id,
-                        db=db
+                if fallback_triggered:
+                    stagnation_detected = True
+                    stagnation_source = 'FALLBACK'
+                    system_logger.info(
+                        f"Stagnation fallback trigger activated: user={current_user.user_id}, "
+                        f"session={session_id}, final_attempts={final_attempts_in_module}",
+                        extra={"event_type": "STAGNATION_FALLBACK_TRIGGER", "session_id": session_id}
                     )
-                    peer_session_created = True
+            
+            # Step 3: Handle stagnation berdasarkan grup
+            if stagnation_detected:
+                # Update flag di assessment_log (final_attempt sudah di-set sebelumnya)
+                final_attempt.stagnation_detected = True
+                
+                # Update flag di user
+                current_user.stagnation_ever_detected = True
+                
+                if current_user.group_assignment == 'A':
+                    # Grup A: Trigger intervensi (peer matching)
+                    event_type = (
+                        "STAGNATION_DETECTED" 
+                        if stagnation_source == 'VARIANCE' 
+                        else "STAGNATION_FALLBACK_TRIGGER"
+                    )
+                    system_logger.info(
+                        f"Stagnation detected for Group A: user={current_user.user_id}, "
+                        f"session={session_id}, source={stagnation_source}",
+                        extra={"event_type": event_type, "session_id": session_id}
+                    )
                     
+                    # Peer Matching: Find heterogeneous peer per Section 6.4
+                    peer = await find_heterogeneous_peer(current_user, db)
+                    
+                    if peer:
+                        # Create peer session linking requester and reviewer
+                        await create_peer_session(
+                            requester=current_user,
+                            reviewer=peer,
+                            question_id=question.question_id,
+                            requester_query=final_attempt.user_query,
+                            db=db
+                        )
+                        peer_session_created = True
+                        
+                        assessment_logger.info(
+                            f"Peer session created for stagnation: "
+                            f"requester={current_user.user_id}, reviewer={peer.user_id}, "
+                            f"question={question.question_id}",
+                            extra={
+                                "event_type": "PEER_MATCH_SUCCESS",
+                                "requester_id": str(current_user.user_id),
+                                "reviewer_id": str(peer.user_id),
+                                "question_id": question.question_id,
+                                "session_id": session_id
+                            }
+                        )
+                    else:
+                        peer_session_created = False
+                        assessment_logger.warning(
+                            f"No peer available for stagnated user: {current_user.user_id}",
+                            extra={
+                                "event_type": "PEER_MATCH_FAIL",
+                                "requester_id": str(current_user.user_id),
+                                "session_id": session_id
+                            }
+                        )
+                        
+                else:  # Grup B
+                    # Grup B: Log stagnation tapi tidak memicu intervensi
                     assessment_logger.info(
-                        f"Peer session created for stagnation: "
-                        f"requester={current_user.user_id}, reviewer={peer.user_id}, "
-                        f"question={question.question_id}",
+                        f"Stagnation detected for Group B (no intervention): "
+                        f"user={current_user.user_id}, session={session_id}, "
+                        f"source={stagnation_source}",
                         extra={
-                            "event_type": "PEER_MATCH_SUCCESS",
+                            "event_type": "STAGNATION_DETECTED_NO_INTERVENTION",
                             "requester_id": str(current_user.user_id),
-                            "reviewer_id": str(peer.user_id),
-                            "question_id": question.question_id,
-                            "session_id": session_id
+                            "session_id": session_id,
+                            "source": stagnation_source
                         }
                     )
-                else:
+                    # Tidak ada peer session yang dibuat untuk Grup B
                     peer_session_created = False
-                    assessment_logger.warning(
-                        f"No peer available for stagnated user: {current_user.user_id}",
-                        extra={
-                            "event_type": "PEER_MATCH_FAIL",
-                            "requester_id": str(current_user.user_id),
-                            "session_id": session_id
-                        }
-                    )
-                
+                    
         except Exception as e:
             system_logger.error(
                 f"Error in stagnation detection/peer matching: {str(e)}",
@@ -930,6 +1019,15 @@ async def get_next_question_endpoint(
         session.current_question_id = selected_question.question_id
         session.current_question_attempt_count = 0
         
+        # Hitung jumlah soal yang sudah di-serve dan total tersedia
+        questions_served = len(current_served)
+        
+        # Query total questions available in this module
+        total_questions_result = await db.execute(
+            select(Question).where(Question.module_id == session.module_id)
+        )
+        total_questions_available = len(total_questions_result.scalars().all())
+        
         await db.commit()
         await db.refresh(session)
         
@@ -946,7 +1044,9 @@ async def get_next_question_endpoint(
             previous_question_id=question.question_id,
             theta_change=new_theta - theta_before,
             stagnation_detected=stagnation_detected,
-            peer_session_created=peer_session_created
+            peer_session_created=peer_session_created,
+            questions_served=questions_served,
+            total_questions_available=total_questions_available
         )
         
         system_logger.info(

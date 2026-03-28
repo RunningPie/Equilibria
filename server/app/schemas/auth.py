@@ -9,13 +9,15 @@ class UserRegister(BaseModel):
     nim: str = Field(..., min_length=8, max_length=10, example="1234567890")
     full_name: str = Field(..., max_length=100, example="John Doe")
     password: str = Field(..., min_length=8, example="strongpassword123")
+    group_assignment: Optional[str] = Field("B", max_length=1, pattern="^[AB]$", example="B")
     
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "nim": "1234567890",
                 "full_name": "John Doe",
-                "password": "strongpassword123"
+                "password": "strongpassword123",
+                "group_assignment": "B"
             }
         }
     )
@@ -62,6 +64,8 @@ class UserResponse(BaseModel):
     total_attempts: int
     status: str
     has_completed_pretest: bool
+    group_assignment: str
+    stagnation_ever_detected: bool
     created_at: datetime
     
     model_config = ConfigDict(
@@ -77,6 +81,8 @@ class UserResponse(BaseModel):
                 "total_attempts": 0,
                 "status": "ACTIVE",
                 "has_completed_pretest": False,
+                "group_assignment": "B",
+                "stagnation_ever_detected": False,
                 "created_at": "2024-01-01T12:00:00Z"
             }
         }
@@ -105,6 +111,8 @@ class LoginResponse(BaseModel):
                     "total_attempts": 0,
                     "status": "ACTIVE",
                     "has_completed_pretest": False,
+                    "group_assignment": "B",
+                    "stagnation_ever_detected": False,
                     "created_at": "2024-01-01T12:00:00Z"
                 }
             }

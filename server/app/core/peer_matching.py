@@ -96,6 +96,7 @@ async def find_heterogeneous_peer(
             User.status != "NEEDS_PEER_REVIEW",
             sql_func.abs(User.theta_individu - requester.theta_individu) >= min_difference
         ).order_by(
+            User.theta_individu.desc(),
             sql_func.abs(User.theta_individu - requester.theta_individu).desc()
         ).limit(5)
     )
@@ -140,6 +141,7 @@ async def create_peer_session(
     requester: User,
     reviewer: User,
     question_id: str,
+    requester_query: str,
     db: AsyncSession
 ) -> PeerSession:
     """
@@ -149,6 +151,7 @@ async def create_peer_session(
         requester: User experiencing stagnation
         reviewer: Assigned heterogeneous peer
         question_id: Question ID context for review
+        requester_query: The requester's SQL query for review
         db: Async database session
         
     Returns:
@@ -158,6 +161,7 @@ async def create_peer_session(
         requester_id=requester.user_id,
         reviewer_id=reviewer.user_id,
         question_id=question_id,
+        requester_query=requester_query,
         review_content="",  # To be filled by reviewer
         system_score=0.0,    # To be calculated when review submitted
         is_helpful=None,   # To be set by requester

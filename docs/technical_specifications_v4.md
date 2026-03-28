@@ -276,6 +276,8 @@ equilibria-monorepo/
 | `has_completed_pretest` | BOOLEAN | DEFAULT FALSE | Flag mandatory cold-start |
 | `total_attempts` | INTEGER | DEFAULT 0 | Total soal final yang sudah dikerjakan (untuk K-factor decay) |
 | `status` | VARCHAR(20) | DEFAULT 'ACTIVE' | `ACTIVE` \| `NEEDS_PEER_REVIEW` |
+| `group_assignment` | VARCHAR(1) | NOT NULL | Assignment grup ablation study: `'A'` (with intervention) atau `'B'` (without intervention). Di-set manual oleh instruktur sebelum lab study. |
+| `stagnation_ever_detected` | BOOLEAN | DEFAULT FALSE | Flag apakah user pernah mengalami stagnation terdeteksi (untuk analisis cepat tanpa mining logs). |
 | `created_at` | TIMESTAMP | DEFAULT NOW() | |
 
 **Catatan `total_attempts`:** Hanya diincrement saat `is_final_attempt = TRUE` di `assessment_logs` — bukan per-submit.
@@ -400,6 +402,7 @@ Menyimpan **semua** attempt (intermediate dan final) untuk keperluan analisis.
 | `difficulty_before` | FLOAT | NULLABLE | Difficulty soal sebelum update — hanya jika `is_final_attempt = TRUE` |
 | `difficulty_after` | FLOAT | NULLABLE | Difficulty soal setelah update — hanya jika `is_final_attempt = TRUE` |
 | `execution_time_ms` | INTEGER | NULLABLE | Waktu solve dari soal pertama kali tampil hingga submit ini (dikirim frontend) |
+| `stagnation_detected` | BOOLEAN | NOT NULL, DEFAULT FALSE | TRUE jika pada `ASSESSMENT_NEXT` ini stagnation terdeteksi untuk pertama kalinya di session ini. Hanya relevan jika `is_final_attempt = TRUE`. Memudahkan analisis log tanpa perlu mining variance Δθ secara manual. |
 | `timestamp` | TIMESTAMP | DEFAULT NOW(), INDEX | |
 
 **Catatan `execution_time_ms`:** Untuk final attempt dengan multi-attempt, `execution_time_ms` mengacu pada total waktu dari attempt pertama soal ini hingga submit terakhir. Frontend mengtrack waktu dari soal pertama kali ditampilkan, bukan dari masing-masing attempt.
@@ -413,6 +416,29 @@ WHERE user_id = :user_id
   AND is_final_attempt = TRUE
 ORDER BY timestamp DESC
 LIMIT 5
+```
+
+Memungkinkan query analisis stagnation detection:
+```sql
+-- Temukan semua titik stagnation terdeteksi
+SELECT user_id, session_id, question_id, timestamp, theta_before, theta_after
+FROM assessment_logs
+WHERE stagnation_detected = TRUE
+ORDER BY timestamp;
+
+-- Bandingkan slope theta sebelum dan sesudah stagnation per user
+SELECT
+    user_id,
+    AVG(theta_after - theta_before) FILTER (WHERE timestamp < stagnation_time) AS avg_delta_pre,
+    AVG(theta_after - theta_before) FILTER (WHERE timestamp > stagnation_time) AS avg_delta_post
+FROM assessment_logs
+JOIN (
+    SELECT user_id, timestamp AS stagnation_time
+    FROM assessment_logs WHERE stagnation_detected = TRUE
+) stag USING (user_id)
+WHERE is_final_attempt = TRUE
+GROUP BY user_id;
+
 ```
 
 ---
@@ -930,11 +956,48 @@ FUNCTION handle_next(session):
     # Cek unlock modul
     check_and_unlock_modules(user)
 
-    # Cek stagnation
-    stagnation = detect_stagnation(user.user_id, session.session_id)
+    # Cek stagnation (hanya untuk Grup A)
+    stagnation = FALSE
+    peer_session_created = FALSE
 
-    IF stagnation:
-        trigger_collaborative_mode(user, session)
+    IF user.group_assignment == 'A':
+        stagnation = detect_stagnation(user.user_id)
+
+        IF NOT stagnation:
+            # Fallback trigger: jika user sudah mengerjakan N soal
+            # di chapter ini tanpa unlock chapter berikutnya
+            soal_di_chapter_ini = COUNT(assessment_logs WHERE
+                user_id    = user.user_id AND
+                module_id  = session.module_id AND
+                is_final_attempt = TRUE)
+
+            next_module = GET modules WHERE order_index = current_module.order_index + 1
+            next_unlocked = (user.theta_individu >= next_module.unlock_theta_threshold)
+
+            IF soal_di_chapter_ini >= 8 AND NOT next_unlocked AND current_module.module_id != 'CH03':
+                stagnation = TRUE
+                LOG event_type = 'STAGNATION_FALLBACK_TRIGGER'
+
+        IF stagnation:
+            # Update flag di log
+            UPDATE assessment_logs SET stagnation_detected = TRUE
+                WHERE log_id = current_final_log.log_id
+
+            # Update flag di user
+            user.stagnation_ever_detected = TRUE
+
+            trigger_collaborative_mode(user, session)
+            peer_session_created = TRUE
+
+    ELSE:
+        # Grup B: stagnation di-log tapi tidak memicu intervensi
+        stagnation_would_trigger = detect_stagnation(user.user_id)
+        IF stagnation_would_trigger:
+            UPDATE assessment_logs SET stagnation_detected = TRUE
+                WHERE log_id = current_final_log.log_id
+            user.stagnation_ever_detected = TRUE
+            LOG event_type = 'STAGNATION_DETECTED_NO_INTERVENTION'
+            # Tidak ada peer session yang dibuat
 
     # Pilih soal berikutnya
     next_q = select_next_question(user.theta_individu, session.module_id, session.question_ids_served)
@@ -1122,6 +1185,42 @@ IF detect_stagnation(user_id, session_id):
         # User tetap lanjut individual mode
 ```
 
+**Fallback Trigger (Safety Net untuk Lab Study):**
+
+Selain variance-based detection, sistem mengimplementasikan fallback trigger berbasis
+jumlah soal untuk memastikan intervensi terpicu dalam timeframe lab study yang terbatas:
+```python
+FUNCTION check_fallback_trigger(user, session):
+    # Hanya aktif jika:
+    # 1. User di Grup A
+    # 2. User bukan di chapter tertinggi (CH03)
+    # 3. Chapter berikutnya belum unlock
+    IF user.group_assignment != 'A': RETURN FALSE
+    IF session.module_id == 'CH03':  RETURN FALSE
+
+    next_module    = GET module WITH order_index = current_module.order_index + 1
+    next_unlocked  = (user.theta_individu >= next_module.unlock_theta_threshold)
+    IF next_unlocked: RETURN FALSE
+
+    soal_di_chapter = COUNT assessment_logs WHERE
+        user_id          = user.user_id AND
+        module_id        = session.module_id AND
+        is_final_attempt = TRUE
+
+    RETURN soal_di_chapter >= 8
+END FUNCTION
+```
+
+**Justifikasi N=8:** Vesin et al. (2022) membuktikan konvergensi dalam 7–10 soal.
+Jika setelah 8 soal user belum unlock chapter berikutnya, sistem dapat menyimpulkan
+bahwa konvergensi prematur telah terjadi meski variance Δθ belum mencapai threshold.
+
+**Prioritas trigger:** Variance-based detection (primary) → Fallback N=8 (secondary).
+Kedua trigger menghasilkan efek yang sama: peer session dibuat dan `stagnation_detected = TRUE`
+di-set di log. Event type berbeda untuk membedakan sumber trigger di analisis pasca-hoc:
+- Variance trigger: `STAGNATION_DETECTED`
+- Fallback trigger: `STAGNATION_FALLBACK_TRIGGER`
+
 ---
 
 ### 6.4 Constraint-Based Re-ranking (Heterogeneity Enforcement)
@@ -1194,30 +1293,88 @@ final_score = (0.5 * system_score) + (0.5 * (1.0 IF is_helpful ELSE 0.0))
 ### 6.6 NLP Feedback Quality Scoring
 
 ```python
-CONSTRUCTIVE_KEYWORDS = [
-    'seharusnya', 'coba', 'gunakan', 'ubah', 'perbaiki', 'tambahkan',
-    'should', 'try', 'use', 'change', 'fix', 'add', 'consider',
-    'alternatif', 'cara lain', 'bisa juga', 'alternatively', 'instead',
+# Section 6.6: NLP Feedback Quality Scoring
+
+# 1. Identification: Problem localization & error detection
+# Source: Kerman et al. (2024) - Cognitive Identification Feature
+IDENTIFICATION_KEYWORDS = [
+    # Indonesian
+    'error', 'salah', 'bug', 'masalah', 'issue', 'kurang', 'hilang', 
+    'tidak muncul', 'tidak berjalan', 'kosong', 'null', 'gagal', 
+    'exception', 'typo', 'keliru', 'cacat', 'anomali',
+    # English
+    'missing', 'wrong', 'incorrect', 'failed', 'issue', 'problem', 
+    'undefined', 'empty', 'invalid'
 ]
 
-IDENTIFICATION_KEYWORDS = [
-    'join', 'group by', 'having', 'where', 'select', 'aggregate',
-    'subquery', 'alias', 'null', 'distinct', 'order by', 'filter',
-    'error', 'salah', 'kurang', 'hilang', 'missing', 'incorrect', 'wrong',
-    'karena', 'sebab', 'because', 'since', 'therefore',
+# 2. Justification: Reasoning & Causal Explanation
+# Source: Kerman et al. (2024) - Cognitive Justification Feature (NEW)
+JUSTIFICATION_KEYWORDS = [
+    # Indonesian
+    'karena', 'sebab', 'akibat', 'sehingga', 'maka', 'akibatnya', 
+    'alasan', 'penyebab', 'mengapa', 'due to', 'oleh karena',
+    # English
+    'because', 'therefore', 'thus', 'hence', 'due to', 'leads to', 
+    'causes', 'reason', 'why', 'since', 'as a result'
+]
+
+# 3. Constructive: Actionable Recommendations & Plans
+# Source: Kerman et al. (2024) - Constructive Feature
+CONSTRUCTIVE_KEYWORDS = [
+    # Indonesian
+    'seharusnya', 'coba', 'gunakan', 'ubah', 'perbaiki', 'tambahkan', 
+    'hapus', 'pindahkan', 'solusi', 'sarankan', 'usulkan', 'ganti',
+    # English
+    'should', 'try', 'use', 'change', 'fix', 'add', 'remove', 'move', 
+    'consider', 'recommend', 'suggest', 'replace', 'update'
+]
+
+# 4. Bloom's Higher-Order Verbs (Quality Bonus)
+# Source: ACM Bloom's for Computing (2023) - Evaluating & Analyzing Levels
+BLOOMS_HIGH_ORDER_KEYWORDS = [
+    # Indonesian
+    'debug', 'optimize', 'validasi', 'trace', 'telusuri', 'analisis', 
+    'evaluasi', 'refactor', 'struktur ulang', 'prioritas', 'bukti',
+    # English
+    'debug', 'optimize', 'validate', 'trace', 'analyze', 'evaluate', 
+    'refactor', 'prioritize', 'prove', 'verify', 'test', 'secure'
 ]
 
 FUNCTION calculate_system_score(feedback_text):
+    # --- Pre-processing ---
     IF LENGTH(TRIM(feedback_text)) < 15:
-        RETURN 0.1
+        RETURN 0.1  # Too short to be meaningful
 
     text = LOWERCASE(feedback_text)
-    has_constructive   = ANY(kw IN text FOR kw IN CONSTRUCTIVE_KEYWORDS)
+    
+    # --- Tier 1: Structural Quality (Weighted Components) ---
+    # Based on Kerman et al. (2024) findings on predictive features
+    
     has_identification = ANY(kw IN text FOR kw IN IDENTIFICATION_KEYWORDS)
-
-    IF has_constructive AND has_identification: RETURN 0.9
-    ELIF has_constructive OR has_identification: RETURN 0.6
-    ELSE: RETURN 0.3
+    has_justification  = ANY(kw IN text FOR kw IN JUSTIFICATION_KEYWORDS)
+    has_constructive   = ANY(kw IN text FOR kw IN CONSTRUCTIVE_KEYWORDS)
+    
+    # Weighted Sum: Justification weighted highest as per Kerman's success predictors
+    structural_score = 0.0
+    IF has_identification: structural_score += 0.3
+    IF has_justification:  structural_score += 0.4
+    IF has_constructive:   structural_score += 0.3
+    
+    # --- Tier 2: Cognitive Depth Bonus (Bloom's Taxonomy) ---
+    # Based on ACM Bloom's for Computing (2023) Higher-Order Verbs
+    
+    depth_bonus = 0.0
+    high_order_count = COUNT(kw IN text FOR kw IN BLOOMS_HIGH_ORDER_KEYWORDS)
+    
+    IF high_order_count > 0:
+        # Cap bonus at 0.2 to prevent overshadowing structural quality
+        depth_bonus = MIN(0.2, high_order_count * 0.1)
+    
+    # --- Final Calculation ---
+    final_score = structural_score + depth_bonus
+    
+    # Ensure score stays within [0.0, 1.0] range
+    RETURN CLAMP(final_score, 0.0, 1.0)
 END FUNCTION
 ```
 
@@ -1558,6 +1715,8 @@ Frontend menampilkan konfirmasi kepada user. Jika user konfirmasi, frontend mema
 | `PEER_RATED` | assessment | Requester rate feedback — theta_social diupdate |
 | `MODULE_UNLOCKED` | assessment | Module baru terbuka |
 | `SANDBOX_ERROR` | system | Query sandbox gagal |
+| `STAGNATION_FALLBACK_TRIGGER` | assessment | Stagnation dipicu oleh fallback N=8 soal (bukan variance) — Grup A |
+| `STAGNATION_DETECTED_NO_INTERVENTION` | assessment | Stagnation terdeteksi tapi tidak dipicu karena Grup B (ablation control) |
 
 ---
 
@@ -1652,64 +1811,60 @@ Frontend menampilkan konfirmasi kepada user. Jika user konfirmasi, frontend mema
 
 ### 12.1 Controlled Lab Study Design
 
-- **Method:** Two-Group Pretest-Posttest dengan Stratified Assignment
-- **Participants:** 10–15 mahasiswa STEI-K ITB yang telah menyelesaikan mata kuliah
-  Pemodelan Basis Data (familiar dengan SQL, namun diasumsikan mengalami partial
-  forgetting)
+- **Method:** Two-Group Pretest-Posttest dengan Stratified Assignment (Ablation Study)
+- **Participants:** 20 mahasiswa STEI-K ITB yang telah menyelesaikan mata kuliah
+  Pemodelan Basis Data. Dipilih karena familiar dengan konsep SQL, namun diasumsikan
+  mengalami sebagian forgetting sehingga sistem adaptif tetap relevan.
 - **Group Assignment:** Stratified berdasarkan nilai mata kuliah (A/AB/B/BC/C) untuk
-  memastikan keseimbangan kemampuan awal antar grup. Keseimbangan diverifikasi
-  menggunakan theta_initial dari pretest (uji Mann-Whitney, target p > 0.05)
-- **Grup A (with intervention):** konvergensi prematur → peer review dipicu
-- **Grup B (without intervention):** konvergensi prematur → lanjut individual mode
-- **Duration:** 90–120 menit per sesi
-- **Location:** Lab environment (koneksi stabil)
-- **Study framing:** Proof-of-concept — tidak diklaim sebagai confirmatory study
-  karena keterbatasan ukuran sampel
+  memastikan distribusi kemampuan yang seimbang antar grup. Keseimbangan diverifikasi
+  menggunakan theta_initial dari pretest (Mann-Whitney U test, target p > 0.05).
+  Assignment dilakukan manual oleh instruktur sebelum lab study dimulai via field
+  `group_assignment` di tabel `users`.
+- **Grup A (with intervention):** variance-based stagnation detection + fallback trigger
+  N=8 soal aktif → peer review dipicu saat stagnation terdeteksi
+- **Grup B (without intervention / ablation):** stagnation detection berjalan dan di-log
+  (`stagnation_detected = TRUE`) tapi peer review **tidak** dipicu → user lanjut
+  individual mode
+- **Study framing:** Proof-of-concept ablation study untuk mengisolasi kontribusi
+  komponen kolaboratif dalam memitigasi overpersonalization
 
 ### 12.2 Testing Phases
 
 | Phase | Duration | Activity |
 |-------|----------|----------|
-| Pre-test | 15 mnt | 5 soal adaptive → θ_initial |
-| System Interaction | 45 mnt | Sesi latihan SQL adaptive |
-| Social Intervention | 30 mnt | Peer review (dipicu stagnation) |
-| Post-test | 15 mnt | 5 soal dari bank reserved (tidak pernah diberikan selama latihan) |
+| Pre-test | 15 menit | 5 soal adaptive → θ_initial sebagai baseline pengukuran NLG |
+| Interaksi Sistem | 75 menit | Individual mode + peer review (Grup A) secara rolling — peer review tidak diblok ke slot waktu tersendiri, terjadi seiring berjalannya sesi saat stagnation terdeteksi |
+| Post-test | 15 menit | 5 soal dari bank reserved → θ_final untuk NLG |
+| **Total** | **105 menit** | |
+
+**Catatan Grup B:** Selama fase Interaksi Sistem, Grup B tetap mengerjakan individual
+mode sepanjang 75 menit tanpa intervensi peer review, meskipun stagnation terdeteksi.
 
 ### 12.3 Success Metrics
 
-| Metric | Formula | Target |
-|--------|---------|--------|
-| Normalized Learning Gain | `g = (post - pre) / (100 - pre)` | g ≥ 0.3 (Hake 1999) |
-| Matching Validity | % peer pairs dengan `\|θ_ind_reviewer - θ_ind_requester\| ≥ 0.5σ` | 100% |
-| Premature Convergence Rate | % user yang mengalami variance Δθ < ε sebelum mencapai CH03 | Dicatat sebagai baseline, tidak ada target |
-| **Social Intervention Effectiveness** | % user yang berhasil unlock chapter berikutnya setelah intervensi sosial dipicu oleh konvergensi prematur | **> 50% (Grup A vs Grup B)** |
-| Response Time | API latency p95 | ≤ 500ms |
+| Metric | Formula / Pengukuran | Target |
+|--------|----------------------|--------|
+| **Normalized Learning Gain** | `g = (post_score - pre_score) / (100 - pre_score)` — dibandingkan antara Grup A dan Grup B | g_A ≥ 0.3 dan g_A > g_B |
+| **Efektivitas Mitigasi Overpersonalization** | Perbandingan slope Δθ pre-intervention vs post-intervention untuk Grup A. Slope dihitung dari 5 log terakhir sebelum dan sesudah titik `stagnation_detected = TRUE` | Slope post > Slope pre (Δθ meningkat setelah intervensi) |
+| **Kontrol Grup B** | Slope Δθ pada titik yang ekuivalen dengan stagnation detection di Grup B — diharapkan tetap datar | Slope tidak meningkat secara signifikan |
+| **Matching Validity** | % peer pairs dengan `\|θ_individu_reviewer - θ_individu_requester\| ≥ 0.5σ` | 100% |
+| **Stagnation Trigger Rate** | % user yang mengalami `stagnation_detected = TRUE` per grup | ≥ 50% per grup (minimal 5 dari 10 user) |
+| **Peer Feedback Quality** | Rata-rata `system_score` dari semua peer_sessions (Grup A) | ≥ 0.6 (validasi operasional theta_social) |
+| **Response Time** | API latency p95 | ≤ 500ms |
 
-**Catatan:** Peer Feedback Quality (`system_score`) dipertahankan sebagai metrik
-operasional internal untuk memvalidasi bahwa `theta_social` mendapat sinyal yang
-bermakna, namun tidak diklaim sebagai bukti efektivitas sistem secara keseluruhan.
-
-**Ablation study design:**
-Untuk mengisolasi kontribusi komponen kolaboratif, peserta dibagi menjadi dua kondisi:
-- **Kondisi A (with intervention):** konvergensi prematur → peer review dipicu
-- **Kondisi B (without intervention):** konvergensi prematur → lanjut individual mode
-
-Metrik utama yang dibandingkan: persentase user yang berhasil unlock chapter berikutnya
-dalam window waktu N soal setelah konvergensi prematur terdeteksi. Karena jumlah
-peserta terbatas (10–15), disarankan **within-subject design** — user yang sama mengalami
-kedua kondisi di chapter yang berbeda (counterbalanced) untuk mengontrol perbedaan
-kemampuan individual.
+**Catatan Peer Feedback Quality:** Metrik ini bersifat operasional — memvalidasi bahwa
+`theta_social` mendapat sinyal yang bermakna, bukan bukti efektivitas sistem secara
+keseluruhan.
 
 ### 12.4 Risk Mitigation
 
 | Risk | P | I | Mitigation |
 |------|---|---|------------|
-| Participant availability | 3 | 5 | Dummy accounts dengan varied Elo profiles |
-| Peer unavailability | 3 | 3 | Lanjut individual mode, catat sebagai limitation |
-| theta_social tidak converge | 4 | 2 | State as limitation, log untuk analisis pasca-hoc |
-
----
-
+| Stagnation tidak terpicu (variance only) | Rendah | Tinggi | Fallback trigger N=8 soal sebagai safety net |
+| Grup tidak seimbang kemampuan awal | Rendah | Tinggi | Stratified assignment + verifikasi Mann-Whitney pada theta_initial |
+| Reviewer tidak tersedia saat stagnation terpicu | Sedang | Sedang | Peer review rolling (tidak semua user stuck bersamaan); Grup B bisa jadi reviewer cadangan jika perlu |
+| Tidak cukup data post-intervention untuk slope analysis | Sedang | Tinggi | Pastikan minimal 5 soal dikerjakan setelah intervensi; extend sesi ke 90 menit jika diperlukan |
+| theta_social tidak converge | Tinggi | Rendah | Stated as limitation; log tersedia untuk analisis pasca-hoc |
 ## 13. APPENDIX: PARAMETER CALIBRATION LOG
 
 ### 13.1 ε Stagnation Threshold (Recalibrated)

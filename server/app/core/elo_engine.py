@@ -185,3 +185,45 @@ async def detect_stagnation(
 
     variance = numpy.var(deltas)  # population variance
     return variance < 165  # ε = 165
+
+
+def check_fallback_trigger(
+    group_assignment: str,
+    current_module_id: str,
+    is_next_module_unlocked: bool,
+    final_attempts_count_in_module: int
+) -> bool:
+    """
+    Spesifikasi 6.3: Fallback Trigger (Safety Net untuk Lab Study)
+    
+    Trigger berbasis jumlah soal (N=8) untuk memastikan intervensi terpicu
+    dalam timeframe lab study yang terbatas.
+    
+    Justifikasi N=8: Vesin et al. (2022) membuktikan konvergensi dalam 7-10 soal.
+    Jika setelah 8 soal user belum unlock chapter berikutnya, sistem dapat 
+    menyimpulkan bahwa konvergensi prematur telah terjadi meski variance Δθ 
+    belum mencapai threshold.
+
+    Args:
+        group_assignment: 'A' atau 'B' - hanya aktif untuk Grup A
+        current_module_id: ID modul saat ini (skip jika CH03)
+        is_next_module_unlocked: True jika chapter berikutnya sudah unlocked
+        final_attempts_count_in_module: Jumlah final attempts di chapter ini
+
+    Returns:
+        bool: True jika fallback trigger terpenuhi, False otherwise
+    """
+    # Hanya aktif untuk Grup A
+    if group_assignment != 'A':
+        return False
+    
+    # Skip jika user sudah di chapter tertinggi (CH03)
+    if current_module_id == "CH03":
+        return False
+    
+    # Skip jika chapter berikutnya sudah unlocked
+    if is_next_module_unlocked:
+        return False
+    
+    # Trigger jika sudah mengerjakan >= 8 soal di chapter ini
+    return final_attempts_count_in_module >= 8

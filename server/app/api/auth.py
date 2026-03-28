@@ -65,7 +65,8 @@ async def register_user(
         new_user = User(
             nim=user_data.nim,
             full_name=user_data.full_name,
-            password_hash=get_password_hash(user_data.password)
+            password_hash=get_password_hash(user_data.password),
+            group_assignment=user_data.group_assignment or 'B'
         )
         
         db.add(new_user)

@@ -82,6 +82,20 @@ class User(Base):
         nullable=False
     )
 
+    # Group assignment untuk ablation study (A=with intervention, B=without)
+    group_assignment: Mapped[str] = mapped_column(
+        String(1),
+        default='B',
+        nullable=False
+    )
+
+    # Flag apakah user pernah mengalami stagnation terdeteksi
+    stagnation_ever_detected: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
     # Mandatory Pre-Test Flag (Cold-Start Mitigation)
     has_completed_pretest: Mapped[bool] = mapped_column(
         Boolean,
@@ -145,6 +159,10 @@ class User(Base):
         CheckConstraint(
             "status IN ('ACTIVE', 'NEEDS_PEER_REVIEW')",
             name='check_status_valid'
+        ),
+        CheckConstraint(
+            "group_assignment IN ('A', 'B')",
+            name='check_group_assignment_valid'
         ),
     )
 

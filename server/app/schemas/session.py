@@ -158,6 +158,8 @@ class NextResult(BaseModel):
     theta_change: Optional[float] = Field(None, description="Perubahan theta (theta_after - theta_before)")
     stagnation_detected: bool = Field(False, description="Apakah stagnation terdeteksi (variance < 165)")
     peer_session_created: bool = Field(False, description="Apakah peer session berhasil dibuat (hanya jika stagnation terdeteksi)")
+    questions_served: int = Field(..., description="Jumlah soal yang sudah di-serve dalam session ini")
+    total_questions_available: int = Field(..., description="Total jumlah soal tersedia di modul ini")
     
     model_config = ConfigDict(
         from_attributes=True,
@@ -174,7 +176,9 @@ class NextResult(BaseModel):
                 "theta_after": 1325.0,
                 "previous_question_id": "CH01-001",
                 "theta_change": 25.0,
-                "stagnation_detected": False
+                "stagnation_detected": False,
+                "questions_served": 2,
+                "total_questions_available": 20
             }
         }
     )

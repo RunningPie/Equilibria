@@ -91,6 +91,32 @@ class PeerSession(Base):
         nullable=False
     )
 
+    # Requester's SQL Query for Review Context
+    requester_query: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=""
+    )
+
+    # Social Elo Tracking Fields
+    theta_social_before: Mapped[float] = mapped_column(
+        Float,
+        nullable=True,
+        default=None
+    )
+
+    theta_social_after: Mapped[float] = mapped_column(
+        Float,
+        nullable=True,
+        default=None
+    )
+
+    completed_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None
+    )
+
     # Relationships
     requester = relationship(
         "User",
