@@ -30,10 +30,12 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401) {
+    // Don't redirect on 401 for login endpoint - let the component handle it
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    
+    if (error.response?.status === 401 && !isLoginRequest) {
       // Unauthorized - clear token and redirect to login
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('user');
+      localStorage.removeItem('auth-storage');
       window.location.href = '/login';
     }
     return Promise.reject(error);

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { authService } from '../services/auth';
 import { useAuthStore } from '../store/authStore';
 
@@ -83,11 +84,14 @@ export function Login() {
       // Redirect to dashboard
       navigate('/dashboard', { replace: true });
     } catch (error) {
-      if (error instanceof Error) {
-        setApiError(error.message || 'Invalid NIM or password');
-      } else {
-        setApiError('An error occurred. Please try again.');
+      // Extract error message from Axios response or fallback
+      let message = 'An error occurred. Please try again.';
+      if (axios.isAxiosError(error)) {
+        message = error.response?.data?.message || error.message || 'Invalid NIM or password';
+      } else if (error instanceof Error) {
+        message = error.message;
       }
+      setApiError(message);
     } finally {
       setIsLoading(false);
     }
