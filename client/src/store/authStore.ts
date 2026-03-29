@@ -1,6 +1,5 @@
-import { create, type StoreApi } from 'zustand';
+import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import zukeeper from 'zukeeper';
 import type { User } from '../types';
 
 interface AuthState {
@@ -17,9 +16,8 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>()(
-  zukeeper(
-    persist(
-      (set: StoreApi<AuthState>['setState']) => ({
+  persist(
+    (set) => ({
         // Initial state
         user: null,
         token: null,
@@ -60,15 +58,14 @@ export const useAuthStore = create<AuthState>()(
       }),
       {
         name: 'auth-storage', // localStorage key
-        partialize: (state) => ({
+        partialize: (state): { user: User | null; token: string | null; isAuthenticated: boolean } => ({
           user: state.user,
           token: state.token,
           isAuthenticated: state.isAuthenticated,
         }),
       }
     )
-  )
-);
+  );
 
 // Selector hooks for convenience
 export const useUser = () => useAuthStore((state) => state.user);
