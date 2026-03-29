@@ -1,0 +1,197 @@
+/**
+ * TypeScript interfaces matching backend schemas
+ * Based on technical specifications v4.3 and FastAPI backend schemas
+ */
+
+// ============================================
+// JSend Response Wrapper
+// ============================================
+export interface JSendResponse<T> {
+  status: 'success' | 'fail' | 'error';
+  code: number;
+  data: T | null;
+  message: string | null;
+}
+
+// ============================================
+// User / Authentication Types
+// ============================================
+export interface User {
+  user_id: string;
+  nim: string;
+  full_name: string;
+  theta_individu: number;
+  theta_social: number;
+  k_factor: number;
+  total_attempts: number;
+  status: 'ACTIVE' | 'NEEDS_PEER_REVIEW';
+  has_completed_pretest: boolean;
+  group_assignment: 'A' | 'B';
+  stagnation_ever_detected: boolean;
+  created_at: string;
+}
+
+export interface UserLoginRequest {
+  nim: string;
+  password: string;
+}
+
+export interface UserRegisterRequest {
+  nim: string;
+  full_name: string;
+  password: string;
+  group_assignment?: 'A' | 'B';
+}
+
+export interface UserUpdateRequest {
+  full_name?: string;
+  old_password?: string;
+  new_password?: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+export interface LogoutResponse {
+  message: string;
+}
+
+// ============================================
+// Session Types
+// ============================================
+export interface AssessmentSession {
+  session_id: string;
+  module_id: string;
+  status: 'ACTIVE' | 'COMPLETED' | 'ABANDONED';
+  user_theta_start: number;
+  user_theta_current: number;
+  questions_served: number;
+  questions_completed: number;
+  started_at: string;
+  ended_at: string | null;
+  current_question_id: string | null;
+}
+
+export interface SessionStartRequest {
+  module_id: string;
+}
+
+export interface SessionStartResult {
+  session_id: string;
+  module_id: string;
+  user_theta: number;
+  status: string;
+  started_at: string;
+}
+
+export interface Question {
+  session_id: string;
+  question_id: string;
+  module_id: string;
+  content: string;
+  current_difficulty: number;
+  attempt_count: number;
+  max_attempts: number;
+}
+
+export interface SessionStatus {
+  session_id: string;
+  module_id: string;
+  status: string;
+  user_theta_start: number;
+  user_theta_current: number;
+  questions_served: number;
+  questions_completed: number;
+  started_at: string;
+  ended_at: string | null;
+  current_question_id: string | null;
+}
+
+// ============================================
+// Submit / Next Types
+// ============================================
+export interface SubmitRequest {
+  question_id: string;
+  user_query: string;
+  execution_time_ms: number;
+}
+
+export interface SubmitResult {
+  is_correct: boolean;
+  is_final_attempt: boolean;
+  attempt_number: number;
+  feedback: string;
+  theta_before: number | null;
+  theta_after: number | null;
+  next_question_available: boolean;
+}
+
+export interface NextResult {
+  session_id: string;
+  question_id: string;
+  module_id: string;
+  content: string;
+  current_difficulty: number;
+  attempt_count: number;
+  max_attempts: number;
+  theta_before: number | null;
+  theta_after: number | null;
+  previous_question_id: string | null;
+  theta_change: number | null;
+  stagnation_detected: boolean;
+  peer_session_created: boolean;
+  questions_served: number;
+  total_questions_available: number;
+}
+
+// ============================================
+// Module Types
+// ============================================
+export interface Module {
+  module_id: string;
+  title: string;
+  description: string;
+  difficulty_min: number;
+  difficulty_max: number;
+  unlock_theta_threshold: number;
+  content_html: string;
+  order_index: number;
+}
+
+export interface ModuleProgress {
+  module_id: string;
+  is_unlocked: boolean;
+  is_completed: boolean;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+// ============================================
+// Profile / Stats Types
+// ============================================
+export interface ProfileStats {
+  theta_individu: number;
+  theta_social: number;
+  theta_display: number;
+  total_attempts: number;
+  k_factor: number;
+  module_progress: ModuleProgress[];
+  accuracy_rate: number;
+}
+
+// ============================================
+// Helper Types
+// ============================================
+export interface ActiveSessionCheck {
+  session_id: string;
+  module_id: string;
+  started_at: string;
+}
+
+// For theta_display calculation
+export const calculateThetaDisplay = (thetaIndividu: number, thetaSocial: number): number => {
+  return 0.8 * thetaIndividu + 0.2 * thetaSocial;
+};

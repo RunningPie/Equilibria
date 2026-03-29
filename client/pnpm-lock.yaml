@@ -35,6 +35,9 @@ importers:
       tailwindcss:
         specifier: ^4.2.2
         version: 4.2.2
+      zukeeper:
+        specifier: ^1.0.2
+        version: 1.0.2
       zustand:
         specifier: ^5.0.12
         version: 5.0.12(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
@@ -1428,6 +1431,9 @@ packages:
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
+  zukeeper@1.0.2:
+    resolution: {integrity: sha512-mffz8JpzC96B3Gpoixklfl2/wY4KsYxZvgPRLFMIqAvEQeMPTjLYG8oUWXm9eoItU/nQ5Lt0G2b0GcZRDGzVgA==}
+
   zustand@5.0.12:
     resolution: {integrity: sha512-i77ae3aZq4dhMlRhJVCYgMLKuSiZAaUPAct2AksxQ+gOtimhGMdXljRT21P5BNpeT4kXlLIckvkPM029OljD7g==}
     engines: {node: '>=12.20.0'}
@@ -2753,6 +2759,8 @@ snapshots:
       zod: 4.3.6
 
   zod@4.3.6: {}
+
+  zukeeper@1.0.2: {}
 
   zustand@5.0.12(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)):
     optionalDependencies:
