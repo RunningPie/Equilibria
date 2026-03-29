@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from pydantic import field_validator
+import json
 
 class Settings(BaseSettings):
     # ==== Application Settings ====
@@ -38,7 +40,27 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     SANDBOX_DB_ROLE: str = "sandbox_executor"
-    CORS_ORIGINS: list[str] = ["*"]  # Update with specific origins in production
+    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Handle both JSON array ['...'] and comma-separated '...' formats"""
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return ["*"]
+            # Try JSON array format first
+            if v.startswith("[") and v.endswith("]"):
+                try:
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    pass
+            # Fall back to comma-separated
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
     
     # ==== Logging Settings ====
     LOG_LEVEL: str = "INFO"
