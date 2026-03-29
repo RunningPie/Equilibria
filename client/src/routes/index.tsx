@@ -6,7 +6,9 @@ import { AuthGuard } from '../components/AuthGuard';
 // Pages
 import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
-import Session from '../pages/Session';
+import SessionPage from '../pages/SessionPage';
+import PretestPage from '../pages/PretestPage';
+import ProfilePage from '../pages/ProfilePage';
 import NotFound from '../pages/NotFound';
 
 /**
@@ -31,11 +33,14 @@ export function AppRoutes() {
         {/* Routes that require pretest completion */}
         <Route element={<PretestGate />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/session/:sessionId" element={<Session />} />
+          <Route path="/session/:sessionId" element={<SessionPage />} />
         </Route>
 
-        {/* TODO: Pretest route - will be implemented later */}
-        {/* <Route path="/pretest" element={<Pretest />} /> */}
+        {/* Pretest - only for users who haven't completed it */}
+        <Route path="/pretest" element={<PretestPage />} />
+
+        {/* Profile page */}
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
       {/* Root redirect */}

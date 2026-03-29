@@ -191,6 +191,41 @@ export interface ActiveSessionCheck {
   started_at: string;
 }
 
+// ============================================
+// Pretest Types
+// ============================================
+export interface PreTestSessionResponse {
+  session_id: string;
+  current_question_index: number;
+  total_questions: number;
+  started_at: string;
+  completed_at: string | null;
+  is_completed: boolean;
+}
+
+export interface PreTestQuestion {
+  question_id: string;
+  content: string;
+  question_number: number;
+  total_questions: number;
+  topic_tags: string[];
+}
+
+export interface PreTestResult {
+  session_id: string;
+  theta_initial: number | null;
+  has_completed_pretest: boolean;
+  total_correct: number;
+  total_questions: number;
+  redirect: string | null;
+}
+
+export interface PreTestAnswerSubmit {
+  question_id: string;
+  question_number: number;
+  user_query: string;
+}
+
 // For theta_display calculation
 export const calculateThetaDisplay = (thetaIndividu: number, thetaSocial: number): number => {
   return 0.8 * thetaIndividu + 0.2 * thetaSocial;

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUser, useAuthStore } from '../store/authStore';
-import { authService } from '../services/auth';
+import { useUser } from '../store/authStore';
 import { sessionService } from '../services/session';
 import { profileService } from '../services/profile';
 import { modulesService, type ModuleWithStatus } from '../services/modules';
+import { Header } from '../components/Header';
 import type { ProfileStats, ActiveSessionCheck } from '../types';
 import { calculateThetaDisplay } from '../types';
 
@@ -15,7 +15,6 @@ import { calculateThetaDisplay } from '../types';
 export function Dashboard() {
   const navigate = useNavigate();
   const user = useUser();
-  const logout = useAuthStore((state) => state.logout);
 
   // Data states
   const [stats, setStats] = useState<ProfileStats | null>(null);
@@ -56,16 +55,6 @@ export function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  // Handle logout
-  const handleLogout = async () => {
-    try {
-      await authService.logout();
-    } finally {
-      logout();
-      navigate('/login', { replace: true });
-    }
-  };
-
   // Resume active session
   const handleResumeSession = () => {
     if (activeSession) {
@@ -89,24 +78,7 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Equilibria</h1>
-            <p className="text-sm text-gray-600">Adaptive SQL Assessment</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-700">{user?.full_name}</span>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm text-red-600 hover:text-red-800 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
