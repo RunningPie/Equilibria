@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser, useAuthStore } from '../store/authStore';
 import { authService } from '../services/auth';
 
@@ -44,6 +44,7 @@ function UserProfileSection() {
     <button
       onClick={handleClick}
       className="flex items-center gap-2 hover:bg-gray-100 rounded-lg px-3 py-2 transition-colors cursor-pointer"
+      title="View Profile"
     >
       <span className="text-sm text-gray-700 font-medium">{user.full_name}</span>
       <ProfileAvatar seed={user.nim} size={36} />
@@ -57,7 +58,11 @@ function UserProfileSection() {
  */
 export function Header() {
   const navigate = useNavigate();
+  const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
+
+  // Don't show header on login page
+  if (location.pathname === '/login') return null;
 
   const handleLogout = async () => {
     try {
@@ -76,7 +81,8 @@ export function Header() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+              title="Go to Dashboard"
             >
               <svg
                 className="w-8 h-8 text-blue-600"
@@ -98,12 +104,36 @@ export function Header() {
             </button>
           </div>
 
-          {/* Right side - User profile & Logout */}
-          <div className="flex items-center gap-4">
+          {/* Right side - Navigation, User profile & Logout */}
+          <div className="flex items-center gap-2">
+            {/* Home/Dashboard Navigation */}
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+              title="Home - Dashboard"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </button>
+
+            {/* Inbox/Collaboration */}
+            <button
+              onClick={() => navigate('/inbox')}
+              className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+              title="Collaboration Inbox"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+            </button>
+
+            <div className="w-px h-6 bg-gray-300 mx-1" />
+
             <UserProfileSection />
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
               title="Logout"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

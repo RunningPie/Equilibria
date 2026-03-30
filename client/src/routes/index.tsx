@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { PretestGate } from '../components/PretestGate';
 import { AuthGuard } from '../components/AuthGuard';
+import { ToastContainer } from '../components/Toast';
 
 // Pages
 import Login from '../pages/Login';
@@ -9,6 +10,7 @@ import Dashboard from '../pages/Dashboard';
 import SessionPage from '../pages/SessionPage';
 import PretestPage from '../pages/PretestPage';
 import ProfilePage from '../pages/ProfilePage';
+import InboxPage from '../pages/InboxPage';
 import NotFound from '../pages/NotFound';
 
 /**
@@ -17,7 +19,9 @@ import NotFound from '../pages/NotFound';
  */
 export function AppRoutes() {
   return (
-    <Routes>
+    <>
+      <ToastContainer position="top-right" />
+      <Routes>
       {/* Public routes */}
       <Route
         path="/login"
@@ -41,6 +45,9 @@ export function AppRoutes() {
 
         {/* Profile page */}
         <Route path="/profile" element={<ProfilePage />} />
+
+        {/* Collaboration Inbox */}
+        <Route path="/inbox" element={<InboxPage />} />
       </Route>
 
       {/* Root redirect */}
@@ -49,6 +56,7 @@ export function AppRoutes() {
       {/* 404 - Not Found */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </>
   );
 }
 

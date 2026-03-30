@@ -6,6 +6,8 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { Header } from '../components/Header';
 import { sessionService } from '../services/session';
 import { useAuthStore } from '../store/authStore';
+import { toast } from '../hooks/toastState';
+import { Modal } from '../components/Modal';
 import type { Question, SubmitResult, NextResult } from '../types';
 
 /**
@@ -28,6 +30,14 @@ export function SessionPage() {
   const [attemptCount, setAttemptCount] = useState(0);
   const [error, setError] = useState('');
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [sessionComplete, setSessionComplete] = useState(false);
+
+  // Progress tracking
+  const [questionsServed, setQuestionsServed] = useState(0);
+  const [totalQuestionsAvailable, setTotalQuestionsAvailable] = useState(0);
+
+  // Skip modal state
+  const [isSkipModalOpen, setIsSkipModalOpen] = useState(false);
 
   // Load current question on mount
   useEffect(() => {
@@ -72,6 +82,11 @@ export function SessionPage() {
       if (result.theta_after) {
         updateUser({ theta_individu: result.theta_after });
       }
+
+      // If no next question available, session is complete
+      if (!result.next_question_available) {
+        setSessionComplete(true);
+      }
     } catch {
       setError('Failed to submit answer. Please try again.');
     } finally {
@@ -90,13 +105,35 @@ export function SessionPage() {
       const result = await sessionService.nextQuestion(sessionId);
       setNextResult(result);
 
+      // Update progress tracking
+      if (result.questions_served) {
+        setQuestionsServed(result.questions_served);
+      }
+      if (result.total_questions_available) {
+        setTotalQuestionsAvailable(result.total_questions_available);
+      }
+
+      // Check for stagnation - show toast warning with link to inbox
+      if (result.stagnation_detected) {
+        toast.warning(
+          'Stagnation detected! A peer review session has been created for you.',
+          10000,
+          { label: 'Go to Inbox', onClick: () => navigate('/inbox') }
+        );
+      }
+
+      // Check if peer session was created
+      if (result.peer_session_created) {
+        toast.info('You have been enrolled in a peer learning session.', 5000);
+      }
+
       // Update user theta
       if (result.theta_after) {
         updateUser({ theta_individu: result.theta_after });
       }
 
-      // Check if session should end
-      if (!result.next_question_available || result.stagnation_detected) {
+      // Check if session should end (max questions reached or next chapter unlocked)
+      if (result.max_questions_reached || result.next_chapter_unlocked) {
         setSessionEnded(true);
         return;
       }
@@ -113,7 +150,26 @@ export function SessionPage() {
     } finally {
       setIsLoadingNext(false);
     }
-  }, [sessionId, updateUser]);
+  }, [sessionId, updateUser, navigate]);
+
+  // Handle skip question (move to next without retry)
+  const handleSkip = useCallback(async () => {
+    setIsSkipModalOpen(false);
+    await handleNext();
+  }, [handleNext]);
+
+  // Handle return to dashboard (call /next first if session is complete)
+  const handleReturnToDashboard = useCallback(async () => {
+    if (sessionComplete && sessionId) {
+      // Call /next to finalize the session in the backend
+      try {
+        await sessionService.nextQuestion(sessionId);
+      } catch {
+        // Ignore errors, just navigate to dashboard
+      }
+    }
+    navigate('/dashboard', { replace: true });
+  }, [sessionComplete, sessionId, navigate]);
 
   // Handle end session
   const handleEndSession = useCallback(async () => {
@@ -138,7 +194,41 @@ export function SessionPage() {
     );
   }
 
-  // Session ended view
+  // Session complete view (no more questions available from submit)
+  if (sessionComplete) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Header />
+        <main className="max-w-4xl mx-auto px-4 py-8">
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <div className="mb-6">
+              <svg className="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Session Complete!</h1>
+            <p className="text-gray-600 mb-6">
+              You have answered all available questions in this module.
+            </p>
+            {submitResult?.theta_after && (
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <p className="text-sm text-gray-600 mb-2">Final Theta Score</p>
+                <p className="text-4xl font-bold text-blue-600">{submitResult.theta_after.toFixed(0)}</p>
+              </div>
+            )}
+            <button
+              onClick={handleReturnToDashboard}
+              className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Return to Dashboard
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Session ended view (from next endpoint - max questions or chapter unlocked)
   if (sessionEnded || !question) {
     return (
       <div className="min-h-screen bg-gray-100">
@@ -151,6 +241,22 @@ export function SessionPage() {
               </svg>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Session Completed</h1>
+
+            {nextResult?.max_questions_reached && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <p className="text-green-800">
+                  Maximum number of questions reached for this session.
+                </p>
+              </div>
+            )}
+
+            {nextResult?.next_chapter_unlocked && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+                <p className="text-purple-800">
+                  Congratulations! You have unlocked the next chapter.
+                </p>
+              </div>
+            )}
 
             {nextResult?.stagnation_detected && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
@@ -181,7 +287,7 @@ export function SessionPage() {
             )}
 
             <button
-              onClick={() => navigate('/dashboard', { replace: true })}
+              onClick={handleReturnToDashboard}
               className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Return to Dashboard
@@ -226,6 +332,24 @@ export function SessionPage() {
               <div
                 className="bg-blue-600 h-2 rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(100, (user.theta_individu / 2000) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Progress Indicator */}
+        {totalQuestionsAvailable > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">Progress</span>
+              <span className="text-sm font-medium text-gray-900">
+                {questionsServed} / {totalQuestionsAvailable} questions
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-green-600 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, (questionsServed / totalQuestionsAvailable) * 100)}%` }}
               />
             </div>
           </div>
@@ -331,7 +455,8 @@ export function SessionPage() {
 
             {/* Action Buttons */}
             <div className="mt-6 flex gap-3">
-              {!submitResult?.is_correct && !submitResult?.is_final_attempt ? (
+              {!submitResult ? (
+                // Submit button (initial state)
                 <button
                   onClick={handleSubmit}
                   disabled={isSubmitting || !sqlQuery.trim()}
@@ -349,7 +474,35 @@ export function SessionPage() {
                     'Submit Answer'
                   )}
                 </button>
-              ) : (
+              ) : !submitResult.is_correct && !submitResult.is_final_attempt ? (
+                // Retry and Skip buttons (incorrect but can retry)
+                <>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || !sqlQuery.trim()}
+                    className="flex-1 bg-amber-600 text-white py-3 px-4 rounded-lg hover:bg-amber-700 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Submitting...
+                      </span>
+                    ) : (
+                      `Retry (Attempt ${attemptCount + 1}/${question.max_attempts})`
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setIsSkipModalOpen(true)}
+                    className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-300 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
+                  >
+                    Skip Question
+                  </button>
+                </>
+              ) : submitResult.next_question_available ? (
+                // Next button (when next question is available)
                 <button
                   onClick={handleNext}
                   disabled={isLoadingNext}
@@ -367,8 +520,53 @@ export function SessionPage() {
                     'Next Question →'
                   )}
                 </button>
+              ) : (
+                // Session complete button (no more questions)
+                <button
+                  onClick={handleReturnToDashboard}
+                  className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
+                >
+                  Return to Dashboard
+                </button>
               )}
             </div>
+            {/* Skip Confirmation Modal */}
+            <Modal
+              isOpen={isSkipModalOpen}
+              onClose={() => setIsSkipModalOpen(false)}
+              title="Skip Question?"
+              footer={
+                <>
+                  <button
+                    onClick={() => setIsSkipModalOpen(false)}
+                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSkip}
+                    className="px-4 py-2 bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition-colors"
+                  >
+                    Yes, Skip
+                  </button>
+                </>
+              }
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-amber-600">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span className="font-medium">Warning</span>
+                </div>
+                <p className="text-gray-600">
+                  You have not answered this question correctly. If you skip, you will <strong>not be able to return</strong> to this question later.
+                </p>
+                <p className="text-gray-600">
+                  Are you sure you want to skip?
+                </p>
+              </div>
+            </Modal>
           </div>
         </div>
       </main>

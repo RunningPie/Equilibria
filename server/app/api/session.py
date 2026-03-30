@@ -659,7 +659,12 @@ async def submit_answer(
             next_question_available = next_question is not None
         
         # Generate feedback
-        feedback = "Jawaban benar!" if is_correct else "Jawaban salah. Silakan lanjut ke soal berikutnya!"
+        if is_correct:
+            feedback = "Jawaban benar!"
+        elif not is_final:
+            feedback = "Jawaban salah. Silakan coba lagi!"
+        else:
+            feedback = "Jawaban salah. Silakan lanjut ke soal berikutnya!"
         if not is_final:
             feedback += f" (Attempt {attempt_number}/3)"
         

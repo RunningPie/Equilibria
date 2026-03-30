@@ -145,6 +145,8 @@ export interface NextResult {
   peer_session_created: boolean;
   questions_served: number;
   total_questions_available: number;
+  max_questions_reached?: boolean;
+  next_chapter_unlocked?: boolean;
 }
 
 // ============================================
