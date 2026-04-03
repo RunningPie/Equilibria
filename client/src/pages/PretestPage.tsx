@@ -83,31 +83,31 @@ export function PretestPage() {
             theta_individu: submitResult.theta_initial,
           });
         }
-        // Wait a moment then redirect
-        setTimeout(() => {
-          navigate('/dashboard', { replace: true });
-        }, 3000);
-      } else {
-        // Get next question
-        setTimeout(async () => {
-          try {
-            const nextQuestion = await pretestService.getCurrentQuestion();
-            setQuestion(nextQuestion);
-            setSqlQuery('');
-            setResult(null);
-          } catch {
-            setError('Failed to load next question');
-          } finally {
-            setIsSubmitting(false);
-          }
-        }, 1500);
+        // Don't auto-redirect - let user see results and click button
       }
+      // Don't auto-advance - let user see feedback and click Next
     } catch (err) {
       const axiosError = err as AxiosError;
       setError(extract422ErrorMessage(axiosError));
+    } finally {
       setIsSubmitting(false);
     }
   }, [question, sqlQuery, navigate, updateUser]);
+
+  // Handle next question
+  const handleNext = useCallback(async () => {
+    setIsSubmitting(true);
+    try {
+      const nextQuestion = await pretestService.getCurrentQuestion();
+      setQuestion(nextQuestion);
+      setSqlQuery('');
+      setResult(null);
+    } catch {
+      setError('Failed to load next question');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -142,7 +142,12 @@ export function PretestPage() {
                 <p className="text-4xl font-bold text-blue-600">{result.theta_initial.toFixed(0)}</p>
               </div>
             )}
-            <p className="text-sm text-gray-500">Redirecting to dashboard...</p>
+            <button
+              onClick={() => navigate('/dashboard', { replace: true })}
+              className="w-full max-w-xs mx-auto bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
+            >
+              Go to Dashboard
+            </button>
           </div>
         </main>
       </div>
@@ -235,13 +240,13 @@ export function PretestPage() {
             {result && !result.has_completed_pretest && (
               <div
                 className={`mt-4 p-4 rounded-lg ${
-                  result.total_correct > (question?.question_number ?? 0) - 1
+                  result.is_correct
                     ? 'bg-green-100 text-green-800'
                     : 'bg-amber-100 text-amber-800'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  {result.total_correct > (question?.question_number ?? 0) - 1 ? (
+                  {result.is_correct ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
@@ -251,7 +256,7 @@ export function PretestPage() {
                     </svg>
                   )}
                   <span className="font-medium">
-                    {result.total_correct > (question?.question_number ?? 0) - 1 ? 'Correct!' : 'Incorrect'}
+                    {result.is_correct ? 'Correct!' : 'Incorrect'}
                   </span>
                 </div>
                 <p className="text-sm mt-1">
@@ -260,23 +265,43 @@ export function PretestPage() {
               </div>
             )}
 
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !sqlQuery.trim()}
-              className="mt-6 w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Submitting...
-                </span>
-              ) : (
-                'Submit Answer'
-              )}
-            </button>
+            {result && !result.has_completed_pretest ? (
+              <button
+                onClick={handleNext}
+                disabled={isSubmitting}
+                className="mt-6 w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading...
+                  </span>
+                ) : (
+                  'Next Question'
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting || !sqlQuery.trim() || !!result}
+                className="mt-6 w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Submitting...
+                  </span>
+                ) : (
+                  'Submit Answer'
+                )}
+              </button>
+            )}
           </div>
         </div>
       </main>

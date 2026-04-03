@@ -220,6 +220,7 @@ export interface PreTestResult {
   total_correct: number;
   total_questions: number;
   redirect: string | null;
+  is_correct: boolean;
 }
 
 export interface PreTestAnswerSubmit {

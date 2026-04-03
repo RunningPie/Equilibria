@@ -55,6 +55,7 @@ class PreTestResult(BaseModel):
     total_correct: int = Field(..., example=0)
     total_questions: int = Field(default=5)
     redirect: Optional[str] = Field(None, example="dashboard")
+    is_correct: bool = Field(..., example=True, description="Whether the submitted answer was correct")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -63,7 +64,8 @@ class PreTestResult(BaseModel):
                 "has_completed_pretest": False,
                 "total_correct": 0,
                 "total_questions": 5,
-                "redirect": "dashboard"
+                "redirect": "dashboard",
+                "is_correct": True
             }
         }
     )

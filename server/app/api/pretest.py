@@ -264,7 +264,8 @@ async def submit_pretest_answer(
                 has_completed_pretest=True,
                 total_correct=correct_count,
                 total_questions=5,
-                redirect="dashboard"
+                redirect="dashboard",
+                is_correct=is_correct
             )
             
         else:
@@ -277,7 +278,8 @@ async def submit_pretest_answer(
                 total_correct=sum(1 for v in current_answers.values() if v),
                 total_questions=5,
                 has_completed_pretest=False,
-                redirect=None
+                redirect=None,
+                is_correct=is_correct
             )
         
         await db.commit()
