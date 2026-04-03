@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { AxiosError } from 'axios';
 import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { Header } from '../components/Header';
 import { pretestService } from '../services/pretest';
+import { extract422ErrorMessage } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import type { PreTestQuestion, PreTestResult } from '../types';
 
@@ -100,8 +102,9 @@ export function PretestPage() {
           }
         }, 1500);
       }
-    } catch {
-      setError('Failed to submit answer. Please try again.');
+    } catch (err) {
+      const axiosError = err as AxiosError;
+      setError(extract422ErrorMessage(axiosError));
       setIsSubmitting(false);
     }
   }, [question, sqlQuery, navigate, updateUser]);

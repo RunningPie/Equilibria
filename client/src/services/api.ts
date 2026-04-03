@@ -2,6 +2,45 @@ import axios, { type AxiosInstance, type AxiosError, type InternalAxiosRequestCo
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
+// Pydantic error detail item
+interface PydanticErrorDetail {
+  type: string;
+  loc: (string | number)[];
+  msg: string;
+  input: unknown;
+  ctx?: Record<string, unknown>;
+  url?: string;
+}
+
+/**
+ * Extract user-friendly error message from 422 Unprocessable Entity response.
+ * Handles both JSend fail format and Pydantic validation error format.
+ */
+export function extract422ErrorMessage(error: AxiosError): string {
+  if (error.response?.status !== 422) {
+    return error.message || 'An error occurred';
+  }
+
+  const data = error.response.data as Record<string, unknown>;
+
+  // Check for JSend fail format
+  if (data && typeof data === 'object') {
+    if (data.status === 'fail' && typeof data.message === 'string') {
+      return data.message;
+    }
+
+    // Check for Pydantic validation error format
+    if (Array.isArray(data.detail)) {
+      const details = data.detail as PydanticErrorDetail[];
+      if (details.length > 0 && typeof details[0].msg === 'string') {
+        return details[0].msg;
+      }
+    }
+  }
+
+  return 'Invalid input. Please check your data and try again.';
+}
+
 // Create axios instance
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
