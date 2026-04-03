@@ -232,3 +232,52 @@ export interface PreTestAnswerSubmit {
 export const calculateThetaDisplay = (thetaIndividu: number, thetaSocial: number): number => {
   return 0.8 * thetaIndividu + 0.2 * thetaSocial;
 };
+
+// ============================================
+// Collaboration / Peer Review Types
+// ============================================
+export interface PeerSessionInboxItem {
+  session_id: string;
+  question_preview: string;
+  status: 'PENDING_REVIEW' | 'WAITING_CONFIRMATION' | 'COMPLETED';
+  created_at: string;
+}
+
+export interface PeerSessionDetail {
+  session_id: string;
+  question: {
+    content: string;
+    topic_tags: string[];
+  };
+  requester_query: string;
+  status: string;
+  expires_at: string | null;
+}
+
+export interface ReviewSubmitRequest {
+  review_content: string;
+}
+
+export interface ReviewSubmitResult {
+  session_id: string;
+  system_score: number;
+  status: string;
+}
+
+export interface PeerSessionRequest {
+  session_id: string;
+  question_preview: string;
+  status: 'PENDING_REVIEW' | 'WAITING_CONFIRMATION' | 'COMPLETED';
+  created_at: string;
+  review_content: string | null;
+}
+
+export interface RateRequest {
+  is_helpful: boolean;
+}
+
+export interface RateResult {
+  final_score: number;
+  reviewer_theta_social_before: number;
+  reviewer_theta_social_after: number;
+}

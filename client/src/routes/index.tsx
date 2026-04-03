@@ -10,7 +10,7 @@ import Dashboard from '../pages/Dashboard';
 import SessionPage from '../pages/SessionPage';
 import PretestPage from '../pages/PretestPage';
 import ProfilePage from '../pages/ProfilePage';
-import InboxPage from '../pages/InboxPage';
+import PeerHubPage from '../pages/PeerHubPage';
 import NotFound from '../pages/NotFound';
 
 /**
@@ -46,8 +46,8 @@ export function AppRoutes() {
         {/* Profile page */}
         <Route path="/profile" element={<ProfilePage />} />
 
-        {/* Collaboration Inbox */}
-        <Route path="/inbox" element={<InboxPage />} />
+        {/* Peer Hub - Collaboration */}
+        <Route path="/peer-hub" element={<PeerHubPage />} />
       </Route>
 
       {/* Root redirect */}

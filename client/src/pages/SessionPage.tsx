@@ -113,12 +113,12 @@ export function SessionPage() {
         setTotalQuestionsAvailable(result.total_questions_available);
       }
 
-      // Check for stagnation - show toast warning with link to inbox
+      // Check for stagnation - show toast warning with link to peer hub
       if (result.stagnation_detected) {
         toast.warning(
           'Stagnation detected! A peer review session has been created for you.',
           10000,
-          { label: 'Go to Inbox', onClick: () => navigate('/inbox') }
+          { label: 'Go to Peer Hub', onClick: () => navigate('/peer-hub') }
         );
       }
 

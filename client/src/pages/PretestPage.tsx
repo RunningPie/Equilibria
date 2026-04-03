@@ -8,6 +8,9 @@ import { pretestService } from '../services/pretest';
 import { useAuthStore } from '../store/authStore';
 import type { PreTestQuestion, PreTestResult } from '../types';
 
+// Track initialization across React 18 StrictMode double-mounts
+const initStarted = new Set<string>();
+
 /**
  * PretestPage
  * Initial assessment with 5 SQL questions to determine user's starting level
@@ -25,10 +28,13 @@ export function PretestPage() {
 
   // Initialize pretest session
   useEffect(() => {
+    // Prevent double initialization in React 18 StrictMode
+    if (initStarted.has('pretest')) return;
+    initStarted.add('pretest');
+    
     const initPretest = async () => {
       try {
         const session = await pretestService.startPretest();
-        setSessionStarted(true);
 
         if (session.is_completed) {
           // Already completed, go to dashboard
@@ -44,11 +50,12 @@ export function PretestPage() {
         setError('Failed to start pretest. Please try again.');
       } finally {
         setIsLoading(false);
+        initStarted.delete('pretest');
       }
     };
 
     initPretest();
-  }, [navigate, updateUser]);
+  }, []); // Empty deps - only run once
 
   // Handle submit
   const handleSubmit = useCallback(async () => {
