@@ -213,6 +213,7 @@ async def submit_pretest_answer(
               
         current_answers = pretest_session.answers or {}
         current_answers[payload.question_id] = is_correct
+        pretest_session.answers = current_answers  # ASSIGN BACK TO SESSION
         flag_modified(pretest_session, 'answers')
         
         # 4. cek apakah ini soal terakhir
