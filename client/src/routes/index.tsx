@@ -11,6 +11,7 @@ import SessionPage from '../pages/SessionPage';
 import PretestPage from '../pages/PretestPage';
 import ProfilePage from '../pages/ProfilePage';
 import PeerHubPage from '../pages/PeerHubPage';
+import LeaderboardPage from '../pages/LeaderboardPage';
 import NotFound from '../pages/NotFound';
 
 /**
@@ -48,6 +49,9 @@ export function AppRoutes() {
 
         {/* Peer Hub - Collaboration */}
         <Route path="/peer-hub" element={<PeerHubPage />} />
+
+        {/* Leaderboard */}
+        <Route path="/leaderboard" element={<LeaderboardPage />} />
       </Route>
 
       {/* Root redirect */}

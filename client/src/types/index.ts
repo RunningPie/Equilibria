@@ -281,3 +281,21 @@ export interface RateResult {
   reviewer_theta_social_before: number;
   reviewer_theta_social_after: number;
 }
+
+// ============================================
+// Leaderboard Types
+// ============================================
+export interface LeaderboardEntry {
+  rank: number;
+  user_id: string;
+  display_name: string;
+  theta_display: number;
+  is_self: boolean;
+}
+
+export interface LeaderboardResponse {
+  entries: LeaderboardEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
