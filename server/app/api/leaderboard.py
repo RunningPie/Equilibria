@@ -1,7 +1,7 @@
 """
 Leaderboard API Endpoint - Tech Specs v4 Section 7.6-F
 
-GET /api/v1/leaderboard - Returns paginated leaderboard sorted by theta_display
+GET /api/v1/leaderboard - Return leaderboard paginated diurutkan theta_display
 dengan display_name yang diobfuscate untuk privasi (kecuali untuk diri sendiri).
 """
 from fastapi import APIRouter, Depends, Query
@@ -30,12 +30,12 @@ logger = get_loggers()[0]
 def obfuscate_display_name(full_name: str) -> str:
     """
     Obfuscate display name untuk privasi.
-    Contoh: "Dama Daliman" -> "D***n" (first char + *** + last char)
+    Contoh: "Dama Daliman" -> "D***n" (karakter pertama + *** + karakter terakhir)
     
     Rules:
-    - Jika nama <= 2 karakter: return as-is
-    - Jika nama 3 karakter: first + ** + last (tapi tengah jadi *)
-    - Jika nama > 3 karakter: first + *** + last
+    - Kalau nama <= 2 karakter: return apa adanya
+    - Kalau nama 3 karakter: first + ** + last
+    - Kalau nama > 3 karakter: first + *** + last
     """
     if len(full_name) <= 2:
         return full_name
@@ -60,27 +60,27 @@ async def get_leaderboard(
     current_user: Optional[User] = Depends(get_current_optional_user),
 ) -> JSONResponse:
     """
-    Get leaderboard rankings sorted by theta_display.
+    Ambil leaderboard rankings diurutkan theta_display.
     
     Query Parameters:
-    - limit: Number of entries to return (default 20, max 100)
+    - limit: Jumlah entries yang direturn (default 20, max 100)
     - offset: Pagination offset (default 0)
     
     Returns:
-    - entries: List of LeaderboardEntry with rank, user_id, display_name, theta_display, is_self
-    - total: Total number of users on the leaderboard
-    - limit: Limit used in the query
-    - offset: Offset used in the query
+    - entries: List LeaderboardEntry dengan rank, user_id, display_name, theta_display, is_self
+    - total: Total user di leaderboard
+    - limit: Limit yang dipakai di query
+    - offset: Offset yang dipakai di query
     
-    Display names are obfuscated (e.g., "D***a") except for the current user's own entry.
+    Display names diobfuscate (e.g., "D***a") kecuali untuk entry user saat ini.
     """
     
-    # Get total count of users
+    # Hitung total user
     total_result = await db.execute(select(func.count()).select_from(User))
     total = total_result.scalar()
     
-    # Get users sorted by theta_display descending with pagination
-    # Note: theta_display is a computed property, so we use the formula directly
+    # Ambil user diurutkan theta_display descending dengan pagination
+    # Catatan: theta_display adalah computed property, jadi pakai rumus langsung
     # theta_display = (0.8 * theta_individu) + (0.2 * theta_social)
     stmt = (
         select(User)
@@ -92,7 +92,7 @@ async def get_leaderboard(
     result = await db.execute(stmt)
     users = result.scalars().all()
     
-    # Build leaderboard entries
+    # Buat leaderboard entries
     entries: list[LeaderboardEntry] = []
     current_user_id = current_user.user_id if current_user else None
     
@@ -100,7 +100,7 @@ async def get_leaderboard(
         rank = offset + idx + 1
         is_self = user.user_id == current_user_id
         
-        # Obfuscate display name except for self
+        # Obfuscate display name kecuali untuk self
         if is_self:
             display_name = user.full_name
         else:
@@ -116,7 +116,7 @@ async def get_leaderboard(
             )
         )
     
-    # Log the request
+    # Log requestnya
     logger.info(
         f"Leaderboard fetched: limit={limit}, offset={offset}, total={total}",
         extra={

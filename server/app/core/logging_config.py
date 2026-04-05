@@ -1,10 +1,10 @@
 """
-Logging Configuration Module
-Technical Specifications v2 - Section 6.6, 8.1
+Modul Konfigurasi Logging
+Spesifikasi Teknis v2 - Bagian 6.6, 8.1
 
-Dual logging system:
-1. System Logs (/app/logs/syslogs/) - Application events, errors, security
-2. Assessment Logs (/app/logs/asslogs/) - Student assessment activities (flat file backup)
+Sistem dual logging:
+1. System Logs (/app/logs/syslogs/) - Event aplikasi, error, security
+2. Assessment Logs (/app/logs/asslogs/) - Aktivitas assessment siswa (backup flat file)
 """
 import logging
 import sys
@@ -17,8 +17,8 @@ from typing import Optional
 
 class JSONFormatter(logging.Formatter):
     """
-    Custom JSON formatter for structured logging.
-    Enables easy parsing for log analysis tools.
+    Custom JSON formatter untuk structured logging.
+    Memudahkan parsing untuk log analysis tools.
     """
     
     def format(self, record: logging.LogRecord) -> str:
@@ -32,7 +32,7 @@ class JSONFormatter(logging.Formatter):
             "line": record.lineno,
         }
         
-        # Add extra fields if present
+        # Tambahkan extra fields kalau ada
         if hasattr(record, 'user_id'):
             log_data['user_id'] = str(record.user_id)
         if hasattr(record, 'session_id'):
@@ -50,7 +50,7 @@ class JSONFormatter(logging.Formatter):
         if hasattr(record, 'event_type'):
             log_data['event_type'] = record.event_type
         
-        # Add exception info if present
+        # Tambahkan exception info kalau ada
         if record.exc_info:
             log_data['exception'] = self.formatException(record.exc_info)
         
@@ -66,25 +66,25 @@ def setup_logging(
     log_level: str = "INFO"
 ) -> tuple[logging.Logger, logging.Logger]:
     """
-    Setup dual logging system with auto-rotation.
+    Setup sistem dual logging dengan auto-rotation.
     
     Args:
         log_dir: Base log directory
         syslog_dir: System logs directory
         asslog_dir: Assessment logs directory
-        max_bytes: Max file size before rotation (default 10MB)
-        backup_count: Number of backup files to keep
+        max_bytes: Max file size sebelum rotation (default 10MB)
+        backup_count: Jumlah backup files yang disimpan
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     
     Returns:
         Tuple of (system_logger, assessment_logger)
     """
     
-    # Create directories
+    # Buat directories
     Path(syslog_dir).mkdir(parents=True, exist_ok=True)
     Path(asslog_dir).mkdir(parents=True, exist_ok=True)
     
-    # Generate timestamp for log filenames
+    # Generate timestamp untuk log filenames
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     # ===========================================
@@ -93,7 +93,7 @@ def setup_logging(
     system_logger = logging.getLogger("equilibria.system")
     system_logger.setLevel(getattr(logging, log_level.upper()))
     
-    # System log file with rotation
+    # System log file dengan rotation
     syslog_file = Path(syslog_dir) / f"syslog_{timestamp}.json"
     syslog_handler = RotatingFileHandler(
         syslog_file,
@@ -104,7 +104,7 @@ def setup_logging(
     syslog_handler.setFormatter(JSONFormatter())
     syslog_handler.setLevel(getattr(logging, log_level.upper()))
     
-    # Console handler for development
+    # Console handler untuk development
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(JSONFormatter())
     console_handler.setLevel(getattr(logging, log_level.upper()))
@@ -119,7 +119,7 @@ def setup_logging(
     assessment_logger = logging.getLogger("equilibria.assessment")
     assessment_logger.setLevel(getattr(logging, log_level.upper()))
     
-    # Assessment log file with rotation
+    # Assessment log file dengan rotation
     asslog_file = Path(asslog_dir) / f"asslog_{timestamp}.json"
     asslog_handler = RotatingFileHandler(
         asslog_file,
@@ -133,7 +133,7 @@ def setup_logging(
     assessment_logger.addHandler(asslog_handler)
     assessment_logger.propagate = False
     
-    # Log initialization
+    # Log inisialisasi
     system_logger.info(
         "Logging system initialized",
         extra={
@@ -155,7 +155,7 @@ assessment_logger: Optional[logging.Logger] = None
 
 def get_loggers() -> tuple[logging.Logger, logging.Logger]:
     """
-    Get logger instances. Initialize if not already done.
+    Get logger instances. Inisialisasi kalau belum dilakukan.
     """
     global system_logger, assessment_logger
     
@@ -177,19 +177,19 @@ def log_assessment_event(
     **kwargs
 ):
     """
-    Helper function to log assessment events to both DB and flat file.
-    Technical Specifications v2 - Section 6.6
+    Helper function untuk log assessment events ke DB dan flat file.
+    Spesifikasi Teknis v2 - Bagian 6.6
     
     Args:
         user_id: User UUID
         session_id: Session UUID
         question_id: Question identifier
-        theta_before: Theta value before update
-        theta_after: Theta value after update
-        is_correct: Whether answer was correct
-        execution_time_ms: Time taken to solve
-        event_type: Type of assessment event
-        **kwargs: Additional fields to log
+        theta_before: Theta value sebelum update
+        theta_after: Theta value setelah update
+        is_correct: Apakah jawaban benar
+        execution_time_ms: Waktu yang dihabiskan untuk solve
+        event_type: Tipe assessment event
+        **kwargs: Additional fields untuk log
     """
     global assessment_logger
     

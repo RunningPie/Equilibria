@@ -53,7 +53,7 @@ class UserUpdate(BaseModel):
 # === Schema Response ===
 class UserResponse(BaseModel):
     '''
-    Dipake buat response yang mengembalikan informasi user, misalnya setelah login atau update profile
+    Digunakan untuk response yang mengembalikan informasi user, misalnya setelah login atau update profile
     '''
     user_id: UUID
     nim: str
@@ -90,7 +90,7 @@ class UserResponse(BaseModel):
 
 class LoginResponse(BaseModel):
     '''
-    Dipake buat response setelah login atau register berhasil, mengembalikan access token dan informasi user
+    Digunakan untuk response setelah login atau register berhasil, mengembalikan access token dan informasi user
     '''
     access_token: str
     token_type: str = "bearer"
@@ -120,12 +120,12 @@ class LoginResponse(BaseModel):
     )
 
 class LogoutResponse(BaseModel):
-    message: str = Field(..., example="Successfully logged out")
+    message: str = Field(..., example="Berhasil logout")
     
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "message": "Successfully logged out"
+                "message": "Berhasil logout"
             }
         }
     )

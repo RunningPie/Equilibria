@@ -206,10 +206,14 @@ export function PretestPage() {
 
             {/* Schema hint - placeholder */}
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Available Tables</h3>
-              <p className="text-sm text-gray-600">
-                Refer to the schema provided in the question. Write a SQL query to solve the problem.
-              </p>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Database Schema Diagram</h3>
+              <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                <p className="text-sm text-gray-500">Relational diagram will be displayed here</p>
+                <p className="text-xs text-gray-400 mt-1">Showing table relationships for this question</p>
+              </div>
             </div>
           </div>
 

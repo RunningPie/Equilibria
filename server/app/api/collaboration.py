@@ -1,7 +1,7 @@
 """
-Collaboration API - Tech Specs v4.2 Section 7.E
+API Kolaborasi - Tech Specs v4.2 Section 7.E
 
-Peer review endpoints for collaborative feedback system.
+Endpoint peer review untuk sistem feedback kolaboratif.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -48,8 +48,8 @@ async def get_inbox(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Get list of peer sessions where current user is the reviewer
-    and status is PENDING_REVIEW (waiting for reviewer's feedback).
+    Ambil list peer session yang user saat ini jadi reviewer
+    dan status PENDING_REVIEW (menunggu feedback reviewer).
     """
     try:
         result = await db.execute(
@@ -62,7 +62,7 @@ async def get_inbox(
 
         inbox_items = []
         for session in peer_sessions:
-            # Get question preview
+            # Ambil preview soal
             question_result = await db.execute(
                 select(Question).where(Question.question_id == session.question_id)
             )
@@ -107,8 +107,8 @@ async def get_review_task(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Get details of a peer session where current user is the reviewer.
-    Returns question info and requester's query (requester identity is hidden).
+    Ambil detail peer session yang user saat ini jadi reviewer.
+    Return info soal dan query requester (identitas requester disembunyikan).
     """
     try:
         result = await db.execute(
@@ -124,7 +124,7 @@ async def get_review_task(
                 message="Peer session not found or you are not the reviewer"
             )
 
-        # Get question details
+        # Ambil detail soal
         question_result = await db.execute(
             select(Question).where(Question.question_id == peer_session.question_id)
         )
@@ -178,11 +178,11 @@ async def submit_review(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Submit review feedback as the reviewer.
-    - Validates reviewer owns the session
-    - Calculates system_score using NLP keyword matching
-    - Updates review_content and system_score
-    - Changes status to WAITING_CONFIRMATION
+    Submit feedback review sebagai reviewer.
+    - Validasi reviewer punya session ini
+    - Hitung system_score pakai NLP keyword matching
+    - Update review_content dan system_score
+    - Ubah status jadi WAITING_CONFIRMATION
     """
     try:
         result = await db.execute(
@@ -204,7 +204,7 @@ async def submit_review(
                 message=f"Cannot submit review. Current status: {peer_session.status}"
             )
 
-        # Calculate system_score using NLP
+        # Hitung system_score pakai NLP
         system_score = calculate_system_score(submit_data.review_content)
 
         # Update peer session
@@ -261,8 +261,8 @@ async def get_requests(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Get list of peer sessions where current user is the requester.
-    Shows all statuses including PENDING_REVIEW, WAITING_CONFIRMATION, COMPLETED.
+    Ambil list peer session yang user saat ini jadi requester.
+    Tampilkan semua status: PENDING_REVIEW, WAITING_CONFIRMATION, COMPLETED.
     """
     try:
         result = await db.execute(
@@ -274,7 +274,7 @@ async def get_requests(
 
         request_items = []
         for session in peer_sessions:
-            # Get question preview
+            # Ambil preview soal
             question_result = await db.execute(
                 select(Question).where(Question.question_id == session.question_id)
             )
@@ -321,12 +321,12 @@ async def rate_feedback(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Rate peer feedback as the requester (thumbs up/down).
-    - Validates requester owns the session
-    - Updates is_helpful
-    - Calculates final_score = 0.5*system_score + 0.5*(1 if helpful else 0)
-    - Triggers Social Elo update for reviewer
-    - Changes status to COMPLETED
+    Rate peer feedback sebagai requester (thumbs up/down).
+    - Validasi requester punya session ini
+    - Update is_helpful
+    - Hitung final_score = 0.5*system_score + 0.5*(1 if helpful else 0)
+    - Trigger Social Elo update untuk reviewer
+    - Ubah status jadi COMPLETED
     """
     try:
         result = await db.execute(
@@ -351,11 +351,11 @@ async def rate_feedback(
         # Update is_helpful
         peer_session.is_helpful = rate_data.is_helpful
 
-        # Calculate final_score
+        # Hitung final_score
         final_score = peer_session.calculate_final_score()
         peer_session.final_score = final_score
 
-        # Get reviewer for Social Elo update
+        # Ambil reviewer untuk Social Elo update
         reviewer_result = await db.execute(
             select(User).where(User.user_id == peer_session.reviewer_id)
         )

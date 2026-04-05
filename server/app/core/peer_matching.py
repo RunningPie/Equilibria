@@ -1,8 +1,8 @@
 """
-Peer Matching Module - Tech Specs v4.2 Section 6.4
+Modul Peer Matching - Tech Specs v4.2 Section 6.4
 
-Implements constraint-based re-ranking for heterogeneous peer matching
-to break filter bubbles during stagnation.
+Implementasi constraint-based re-ranking untuk heterogeneous peer matching
+untuk memecah filter bubbles saat stagnation.
 """
 import numpy
 import random
@@ -25,14 +25,14 @@ FALLBACK_POPULATION_STD = 100.0
 
 async def calculate_population_std(db: AsyncSession) -> float:
     """
-    Calculate population standard deviation of theta_individu
-    across all ACTIVE users.
+    Hitung population standard deviation dari theta_individu
+    di seluruh user ACTIVE.
     
     Args:
         db: Async database session
         
     Returns:
-        Population standard deviation of theta_individu
+        Population standard deviation dari theta_individu
     """
     result = await db.execute(
         select(User.theta_individu).where(User.status == "ACTIVE")
@@ -55,26 +55,26 @@ async def find_heterogeneous_peer(
     db: AsyncSession
 ) -> Optional[User]:
     """
-    Find a heterogeneous peer for collaborative review.
+    Cari heterogeneous peer untuk collaborative review.
     
-    Algorithm (Section 6.4):
-    1. Calculate population std of theta_individu across ACTIVE users
-    2. Compute min_difference = 0.5 * population_std (Cohen's d = 0.5)
-    3. Filter users where |theta_peer - theta_requester| >= min_difference
-    4. Exclude users with status 'NEEDS_PEER_REVIEW'
-    5. Order by theta difference descending, take top 5, random select
+    Algoritma (Section 6.4):
+    1. Hitung population std dari theta_individu di seluruh user ACTIVE
+    2. Hitung min_difference = 0.5 * population_std (Cohen's d = 0.5)
+    3. Filter user dimana |theta_peer - theta_requester| >= min_difference
+    4. Exclude user dengan status 'NEEDS_PEER_REVIEW'
+    5. Order by theta difference descending, ambil top 5, random select
     
     Args:
-        requester: User experiencing stagnation
+        requester: User yang mengalami stagnation
         db: Async database session
         
     Returns:
-        Selected peer User or None if no suitable peer found
+        Selected peer User atau None kalau tidak ada peer yang cocok
     """
-    # Step 1: Calculate population standard deviation
+    # Step 1: Hitung population standard deviation
     population_std = await calculate_population_std(db)
     
-    # Step 2: Compute minimum difference (Cohen's d = 0.5)
+    # Step 2: Hitung minimum difference (Cohen's d = 0.5)
     min_difference = COHEN_D_THRESHOLD * population_std
     
     system_logger.info(
@@ -88,8 +88,8 @@ async def find_heterogeneous_peer(
         }
     )
     
-    # Step 3 & 4: Find candidates with sufficient theta difference
-    # Exclude: requester themselves, users needing peer review
+    # Step 3 & 4: Cari candidates dengan theta difference yang cukup
+    # Exclude: requester sendiri, user yang butuh peer review
     result = await db.execute(
         select(User).where(
             User.user_id != requester.user_id,
@@ -115,7 +115,7 @@ async def find_heterogeneous_peer(
         )
         return None
     
-    # Step 5: Random selection from top 5 candidates
+    # Step 5: Random selection dari top 5 candidates
     import random
     selected_peer = random.choice(list(candidates))
     
@@ -145,13 +145,13 @@ async def create_peer_session(
     db: AsyncSession
 ) -> PeerSession:
     """
-    Create a peer session record linking requester and reviewer.
+    Buat peer session record yang menghubungkan requester dan reviewer.
     
     Args:
-        requester: User experiencing stagnation
-        reviewer: Assigned heterogeneous peer
-        question_id: Question ID context for review
-        requester_query: The requester's SQL query for review
+        requester: User yang mengalami stagnation
+        reviewer: Peer heterogen yang ditugaskan
+        question_id: Question ID context untuk review
+        requester_query: SQL query requester untuk direview
         db: Async database session
         
     Returns:
@@ -162,18 +162,18 @@ async def create_peer_session(
         reviewer_id=reviewer.user_id,
         question_id=question_id,
         requester_query=requester_query,
-        review_content="",  # To be filled by reviewer
-        system_score=0.0,    # To be calculated when review submitted
-        is_helpful=None,   # To be set by requester
-        final_score=0.0,   # To be calculated after rating
+        review_content="",  # Akan diisi oleh reviewer
+        system_score=0.0,    # Akan dihitung saat review disubmit
+        is_helpful=None,   # Akan di-set oleh requester
+        final_score=0.0,   # Akan dihitung setelah rating
         status="PENDING_REVIEW"
     )
     
     db.add(peer_session)
     
-    # Update user statuses
+    # Update status user
     requester.status = "NEEDS_PEER_REVIEW"
-    # Note: Reviewer status remains ACTIVE (they can still use the system)
+    # Catatan: Reviewer status tetap ACTIVE (mereka masih bisa pakai sistem)
     
     await db.flush()  # Get the session_id
     

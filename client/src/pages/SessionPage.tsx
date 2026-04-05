@@ -36,6 +36,10 @@ export function SessionPage() {
   const [questionsServed, setQuestionsServed] = useState(0);
   const [totalQuestionsAvailable, setTotalQuestionsAvailable] = useState(0);
 
+  // Track theta change for visual indicator
+  const [thetaChange, setThetaChange] = useState<number | null>(null);
+  const [showThetaChange, setShowThetaChange] = useState(false);
+
   // Skip modal state
   const [isSkipModalOpen, setIsSkipModalOpen] = useState(false);
 
@@ -130,6 +134,14 @@ export function SessionPage() {
       // Update user theta
       if (result.theta_after) {
         updateUser({ theta_individu: result.theta_after });
+      }
+
+      // Track theta change for visual indicator
+      if (result.theta_change !== null && result.theta_change !== undefined) {
+        setThetaChange(result.theta_change);
+        setShowThetaChange(true);
+        // Hide the indicator after 3 seconds
+        setTimeout(() => setShowThetaChange(false), 3000);
       }
 
       // Check if session should end (max questions reached or next chapter unlocked)
@@ -324,9 +336,30 @@ export function SessionPage() {
           <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Your Rating</span>
-              <span className="text-lg font-semibold text-blue-600">
-                {user.theta_individu.toFixed(0)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-semibold text-blue-600">
+                  {user.theta_individu.toFixed(0)}
+                </span>
+                {/* Theta Change Indicator */}
+                {showThetaChange && thetaChange !== null && (
+                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-medium animate-pulse ${
+                    thetaChange >= 0 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {thetaChange >= 0 ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                      </svg>
+                    )}
+                    <span>{thetaChange >= 0 ? '+' : ''}{thetaChange.toFixed(1)}</span>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
               <div
@@ -380,11 +413,20 @@ export function SessionPage() {
             {/* Schema info */}
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Instructions</h3>
-              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1 mb-4">
                 <li>Write a SQL query that answers the question</li>
                 <li>You have {question.max_attempts} attempts per question</li>
                 <li>Your rating adjusts based on correctness</li>
               </ul>
+              
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Database Schema Diagram</h3>
+              <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <svg className="w-10 h-10 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                <p className="text-xs text-gray-500">Relational diagram will be displayed here</p>
+                <p className="text-xs text-gray-400 mt-1">Showing table relationships for this question</p>
+              </div>
             </div>
           </div>
 

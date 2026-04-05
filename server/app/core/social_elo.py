@@ -1,8 +1,8 @@
 """
 Social Elo Update Module - Tech Specs v4.2 Section 6.5
 
-Implements Social Elo rating update for reviewers based on feedback ratings.
-theta_social measures reviewer quality and is updated after requester rates feedback.
+Implementasi Social Elo rating update untuk reviewers berdasarkan feedback ratings.
+theta_social mengukur kualitas reviewer dan diupdate setelah requester rate feedback.
 """
 
 from datetime import datetime
@@ -23,9 +23,9 @@ def update_theta_social(
     peer_session: PeerSession
 ) -> Tuple[float, float]:
     """
-    Update reviewer's theta_social based on final_score from rated feedback.
+    Update theta_social reviewer berdasarkan final_score dari feedback yang dirate.
 
-    Algorithm (Section 6.5):
+    Algoritma (Section 6.5):
     - W_social = peer_session.final_score (0.0 - 1.0)
     - We_social = 0.5 (neutral baseline)
     - K_social = 30 (novice phase)
@@ -33,35 +33,35 @@ def update_theta_social(
     - new_theta_social = CLAMP(reviewer.theta_social + delta, 0, 2000)
 
     Args:
-        reviewer: The reviewer User whose theta_social will be updated
-        peer_session: The completed peer session with final_score set
+        reviewer: Reviewer User yang theta_social-nya akan diupdate
+        peer_session: Peer session yang sudah selesai dengan final_score yang sudah di-set
 
     Returns:
         Tuple of (theta_social_before, theta_social_after)
     """
-    # Calculate final_score if not already set
+    # Hitung final_score kalau belum di-set
     final_score = peer_session.calculate_final_score()
 
-    # Elo update parameters
-    W_social = final_score  # Actual score from rating
+    # Parameter Elo update
+    W_social = final_score  # Actual score dari rating
     We_social = EXPECTED_SCORE_SOCIAL  # Expected baseline
     K_social = K_SOCIAL
 
-    # Calculate rating delta
+    # Hitung rating delta
     delta = K_social * (W_social - We_social)
-    # delta range: [-15, +15] per interaction
+    # delta range: [-15, +15] per interaksi
 
-    # Store previous value for logging
+    # Simpan nilai sebelumnya untuk logging
     theta_social_before = reviewer.theta_social
 
-    # Calculate new rating with clamping
+    # Hitung rating baru dengan clamping
     new_theta_social = reviewer.theta_social + delta
     new_theta_social = max(RATING_MIN, min(RATING_MAX, new_theta_social))
 
     # Update reviewer
     reviewer.theta_social = new_theta_social
 
-    # Update peer session for analysis logging
+    # Update peer session untuk analysis logging
     peer_session.theta_social_before = theta_social_before
     peer_session.theta_social_after = new_theta_social
     peer_session.status = "COMPLETED"

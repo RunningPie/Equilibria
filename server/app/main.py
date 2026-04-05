@@ -1,6 +1,6 @@
 """
 Equilibria Backend - FastAPI Entry Point
-Technical Specifications v2 - Section 1.3, 7
+Spesifikasi Teknis v2 - Bagian 1.3, 7
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,18 +11,18 @@ from app.core.config import settings
 from app.core.logging_config import get_loggers, setup_logging
 from app.db.session import init_db
 
-# Initialize logging on startup
+# Inisialisasi logging pada startup
 system_logger, assessment_logger = get_loggers()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Application lifespan manager for startup/shutdown events.
+    Manajer siklus hidup aplikasi untuk startup/shutdown events.
     """
     # Startup
     system_logger.info(
-        f"Starting {settings.APP_NAME} v{settings.APP_VERSION}",
+        f"Memulai {settings.APP_NAME} v{settings.APP_VERSION}",
         extra={
             "event_type": "APP_STARTUP",
             "environment": settings.ENVIRONMENT,
@@ -30,11 +30,11 @@ async def lifespan(app: FastAPI):
         }
     )
     
-    # Initialize database
+    # Inisialisasi database
     await init_db()
     
     system_logger.info(
-        "Application startup complete",
+        "Proses startup aplikasi selesai",
         extra={"event_type": "APP_STARTUP_COMPLETE"}
     )
     
@@ -42,15 +42,15 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     system_logger.info(
-        "Application shutting down",
+        "Aplikasi sedang shutdown",
         extra={"event_type": "APP_SHUTDOWN"}
     )
 
 
-# Create FastAPI application
+# Buat aplikasi FastAPI
 app = FastAPI(
     title=settings.APP_NAME,
-    description="Collaborative Adaptive Assessment System with Overpersonalization Mitigation",
+    description="Sistem Penilaian Adaptif Kolaboratif dengan Mitigasi Overpersonalisasi",
     version=settings.APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -58,7 +58,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Configuration (Technical Specs Section 2)
+# Konfigurasi CORS (Spesifikasi Teknis Bagian 2)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -75,15 +75,15 @@ app.include_router(api_router, prefix="/api", tags=["API"])
 @app.get("/health", tags=["Health"])
 async def health_check():
     """
-    Health check endpoint for monitoring.
-    Technical Specifications v2 - Section 7.2
+    Endpoint health check untuk monitoring.
+    Spesifikasi Teknis v2 - Bagian 7.2
     """
     system_logger.debug(
-        "Health check requested",
+        "Permintaan health check",
         extra={"event_type": "HEALTH_CHECK"}
     )
     return {
-        "status": "healthy",
+        "status": "sehat",
         "service": "equilibria-backend",
         "version": settings.APP_VERSION
     }
@@ -93,13 +93,13 @@ async def health_check():
 @app.get("/", tags=["Root"])
 async def root():
     """
-    Root endpoint with API information.
+    Endpoint root dengan info API.
     """
     return {
-        "message": "Welcome to Equilibria API",
+        "message": "Selamat datang di Equilibria API",
         "version": settings.APP_VERSION,
         "docs": "/docs",
-        "specifications": "Technical Specifications v2.0"
+        "spesifikasi": "Spesifikasi Teknis v2.0"
     }
 
 

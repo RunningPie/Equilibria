@@ -1,5 +1,5 @@
 """
-Question Selection Strategy - Tech Specs v4.2 Section 6.2
+Strategi Pemilihan Soal - Tech Specs v4.2 Section 6.2
 
 Algoritma pemilihan soal adaptif untuk pretest dan chapter sessions.
 Digunakan bersama oleh PreTest dan Assessment Session APIs.
@@ -29,7 +29,7 @@ async def select_next_question(
         db: Database session
         
     Returns:
-        Question yang dipilih atau None jika tidak ada soal tersedia
+        Question yang dipilih atau None kalau tidak ada soal tersedia
     """
     # Filter soal yang aktif dan belum di-serve
     result = await db.execute(
@@ -79,7 +79,7 @@ async def select_pretest_question(
         db: Database session
         
     Returns:
-        Question yang dipilih atau None jika tidak ada soal tersedia
+        Question yang dipilih atau None kalau tidak ada soal tersedia
     """
     # Filter soal CH01 yang belum dijawab
     result = await db.execute(

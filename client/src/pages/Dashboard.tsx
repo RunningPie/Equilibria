@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../store/authStore';
 import { sessionService } from '../services/session';
 import { profileService } from '../services/profile';
+import { authService } from '../services/auth';
 import { modulesService, type ModuleWithStatus } from '../services/modules';
+import { leaderboardService } from '../services/leaderboard';
 import { Header } from '../components/Header';
-import type { ProfileStats, ActiveSessionCheck } from '../types';
+import type { ProfileStats, ActiveSessionCheck, User, LeaderboardEntry } from '../types';
 import { calculateThetaDisplay } from '../types';
 
 /**
@@ -20,11 +22,15 @@ export function Dashboard() {
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [modules, setModules] = useState<ModuleWithStatus[]>([]);
   const [activeSession, setActiveSession] = useState<ActiveSessionCheck | null>(null);
+  const [userData, setUserData] = useState<User | null>(null);
+  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
 
   // Loading states
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isLoadingModules, setIsLoadingModules] = useState(true);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(true);
 
   // Error states
   const [error, setError] = useState('');
@@ -34,21 +40,27 @@ export function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         // Fetch all data in parallel
-        const [statsData, modulesData, sessionData] = await Promise.all([
+        const [statsData, modulesData, sessionData, userDataResult, leaderboardData] = await Promise.all([
           profileService.getStats().catch(() => null),
           modulesService.listModules().catch(() => []),
           sessionService.getActiveSession().catch(() => null),
+          authService.getMe().catch(() => null),
+          leaderboardService.getLeaderboard(5, 0).catch(() => null),
         ]);
 
         if (statsData) setStats(statsData);
         setModules(modulesData);
         if (sessionData) setActiveSession(sessionData);
+        if (userDataResult) setUserData(userDataResult);
+        if (leaderboardData) setLeaderboardEntries(leaderboardData.entries);
       } catch {
         setError('Failed to load dashboard data');
       } finally {
         setIsLoadingStats(false);
         setIsLoadingModules(false);
         setIsLoadingSession(false);
+        setIsLoadingUser(false);
+        setIsLoadingLeaderboard(false);
       }
     };
 
@@ -67,13 +79,13 @@ export function Dashboard() {
     try {
       const result = await sessionService.startSession({ module_id: moduleId });
       navigate(`/session/${result.session_id}`);
-    } catch (_err) {
+    } catch {
       setError('Failed to start session');
     }
   };
 
   // Calculate theta display if stats not loaded yet
-  const thetaDisplay = stats?.theta_display ?? (user ? calculateThetaDisplay(user.theta_individu, user.theta_social) : 0);
+  const thetaDisplay = stats?.theta_display ?? (userData ? calculateThetaDisplay(userData.theta_individu, userData.theta_social) : (user ? calculateThetaDisplay(user.theta_individu, user.theta_social) : 0));
   const thetaPercentage = Math.min(100, Math.max(0, (thetaDisplay / 2000) * 100));
 
   return (
@@ -116,7 +128,7 @@ export function Dashboard() {
                 {/* Individual Theta */}
                 <div className="text-center">
                   <div className="text-2xl font-semibold text-gray-800">
-                    {stats?.theta_individu.toFixed(0) ?? user?.theta_individu.toFixed(0)}
+                    {stats?.theta_individu.toFixed(0) ?? userData?.theta_individu.toFixed(0) ?? user?.theta_individu.toFixed(0)}
                   </div>
                   <div className="text-sm text-gray-600">Individual (80%)</div>
                 </div>
@@ -124,7 +136,7 @@ export function Dashboard() {
                 {/* Social Theta */}
                 <div className="text-center">
                   <div className="text-2xl font-semibold text-gray-800">
-                    {stats?.theta_social.toFixed(0) ?? user?.theta_social.toFixed(0)}
+                    {stats?.theta_social.toFixed(0) ?? userData?.theta_social.toFixed(0) ?? user?.theta_social.toFixed(0)}
                   </div>
                   <div className="text-sm text-gray-600">Social (20%)</div>
                 </div>
@@ -132,25 +144,19 @@ export function Dashboard() {
             )}
 
             {/* Additional Stats */}
-            {!isLoadingStats && stats && (
-              <div className="mt-6 pt-6 border-t border-gray-200 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            {(!isLoadingStats || !isLoadingUser) && (stats || userData) && (
+              <div className="mt-6 pt-6 border-t border-gray-200 grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-lg font-semibold text-gray-800">{stats.total_attempts}</div>
+                  <div className="text-lg font-semibold text-gray-800">{userData?.total_attempts ?? user?.total_attempts ?? '-'}</div>
                   <div className="text-xs text-gray-600">Total Attempts</div>
                 </div>
                 <div>
-                  <div className="text-lg font-semibold text-gray-800">{stats.k_factor?.toFixed(1) ?? '-'}</div>
+                  <div className="text-lg font-semibold text-gray-800">{userData?.k_factor ?? user?.k_factor ?? '-'}</div>
                   <div className="text-xs text-gray-600">K-Factor</div>
                 </div>
                 <div>
                   <div className="text-lg font-semibold text-gray-800">
-                    {(stats.accuracy_rate ? stats.accuracy_rate * 100 : 0).toFixed(0)}%
-                  </div>
-                  <div className="text-xs text-gray-600">Accuracy</div>
-                </div>
-                <div>
-                  <div className="text-lg font-semibold text-gray-800">
-                    {user?.status === 'ACTIVE' ? 'Active' : 'Peer Review'}
+                    {userData?.status === 'ACTIVE' || user?.status === 'ACTIVE' ? 'Active' : 'Peer Review'}
                   </div>
                   <div className="text-xs text-gray-600">Status</div>
                 </div>
@@ -178,6 +184,83 @@ export function Dashboard() {
             </div>
           </section>
         )}
+
+        {/* Leaderboard Preview */}
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">Leaderboard</h2>
+            <button
+              onClick={() => navigate('/leaderboard')}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+            >
+              View Full Leaderboard
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            {isLoadingLeaderboard ? (
+              <div className="animate-pulse space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                    <div className="flex-1 h-4 bg-gray-200 rounded"></div>
+                    <div className="w-16 h-4 bg-gray-200 rounded"></div>
+                  </div>
+                ))}
+              </div>
+            ) : leaderboardEntries.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+                <p>No leaderboard entries yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {leaderboardEntries.map((entry) => (
+                  <div
+                    key={entry.user_id}
+                    className={`flex items-center gap-4 p-3 rounded-lg ${
+                      entry.is_self ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    {/* Rank */}
+                    <div className="w-8 text-center">
+                      {entry.rank === 1 ? (
+                        <span className="text-xl">🥇</span>
+                      ) : entry.rank === 2 ? (
+                        <span className="text-xl">🥈</span>
+                      ) : entry.rank === 3 ? (
+                        <span className="text-xl">🥉</span>
+                      ) : (
+                        <span className="text-sm font-semibold text-gray-600">{entry.rank}</span>
+                      )}
+                    </div>
+                    {/* Name */}
+                    <div className="flex-1">
+                      <span className={`font-medium ${entry.is_self ? 'text-blue-900' : 'text-gray-900'}`}>
+                        {entry.display_name}
+                      </span>
+                      {entry.is_self && (
+                        <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                          You
+                        </span>
+                      )}
+                    </div>
+                    {/* Score */}
+                    <div className="text-right">
+                      <span className={`font-bold ${entry.is_self ? 'text-blue-700' : 'text-gray-700'}`}>
+                        {Math.round(entry.theta_display).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* Modules List */}
         <section>

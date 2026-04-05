@@ -4,14 +4,14 @@ from pydantic import field_validator
 import json
 
 class Settings(BaseSettings):
-    # ==== Application Settings ====
+    # ==== Pengaturan Aplikasi ====
     APP_NAME: str = "Equilibria"
     APP_VERSION: str = "1.0.0"
-    ENVIRONMENT: str = "development"  # Options: development, staging, production
+    ENVIRONMENT: str = "development"  # Opsi: development, staging, production
     PYTHONPATH: str = "/app"
     DEBUG: bool = ENVIRONMENT == "development"
     
-    # ==== DB Connection Settings ====
+    # ==== Pengaturan Koneksi DB ====
     DB_USER: str = "equilibria_user"
     DB_PASSWORD: str = "equilibria_password"
     DB_NAME: str = "equilibria_db"
@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "equilibria_password"
     POSTGRES_DB: str = "equilibria_db"
     
-    # Properties turunan   
+    # Properti turunan   
     @property
     def effective_db_user(self) -> str:
         return self.DB_USER if self.DB_USER != "equilibria_user" else self.POSTGRES_USER
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     
     DATABASE_URL: str = f"postgresql+asyncpg://{effective_db_user}:{effective_db_password}@db:5432/{effective_db_name}"
         
-    # ==== Security Settings ====
+    # ==== Pengaturan Keamanan ====
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     SANDBOX_DB_ROLE: str = "sandbox_executor"
@@ -45,24 +45,24 @@ class Settings(BaseSettings):
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):
-        """Handle both JSON array ['...'] and comma-separated '...' formats"""
+        """Tangani baik format JSON array ['...'] maupun comma-separated '...'"""
         if isinstance(v, list):
             return v
         if isinstance(v, str):
             v = v.strip()
             if not v:
                 return ["*"]
-            # Try JSON array format first
+            # Coba format JSON array terlebih dahulu
             if v.startswith("[") and v.endswith("]"):
                 try:
                     return json.loads(v)
                 except json.JSONDecodeError:
                     pass
-            # Fall back to comma-separated
+            # Jika gagal, coba format comma-separated
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
     
-    # ==== Logging Settings ====
+    # ==== Pengaturan Logging ====
     LOG_LEVEL: str = "INFO"
     LOG_DIR: str = "/app/logs"
     SYSLOG_DIR: str = "/app/logs/syslogs"

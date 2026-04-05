@@ -18,18 +18,18 @@ logger = get_loggers()[0]
 @router.get(
     "/stats",
     response_model=JSendResponse[ProfileStats],
-    summary="Get user profile statistics",
+    summary="Ambil statistik profil user",
     description="Returns theta_individu, theta_social, and theta_display values for the current user."
 )
 async def get_profile_stats(
     current_user: User = Depends(get_current_user),
 ) -> JSONResponse:
     """
-    Get profile statistics for current user.
+    Ambil profil statistik untuk user saat ini.
     
     Returns:
-    - theta_individu: Individual Elo rating [0, 2000]
-    - theta_social: Social Elo rating [0, 2000] 
+    - theta_individu: Elo rating individu [0, 2000]
+    - theta_social: Elo rating sosial [0, 2000] 
     - theta_display: Weighted average (0.8 × θ_individu) + (0.2 × θ_social)
     """
     logger.info(

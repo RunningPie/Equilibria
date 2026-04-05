@@ -1,5 +1,5 @@
 '''
-Core modul untuk mengeksekusi SQL user dan membandingkan dengan kunci jawaban.
+Core modul untuk eksekusi SQL user dan perbandingan dengan kunci jawaban.
 
 Fix (2026-03-13):
   - Sandbox sekarang pakai koneksi terpisah yang di-SET ROLE ke sandbox_executor
@@ -18,7 +18,7 @@ logger = get_loggers()[0]
 
 
 class SandboxExecutionError(Exception):
-    """Custom exception for sandbox execution failures"""
+    """Custom exception untuk sandbox execution failures"""
     pass
 
 '''
@@ -58,8 +58,8 @@ def _validate_query(query: str) -> str:
     query_upper = query.upper()
     for keyword in BANNED_KEYWORDS:
         if keyword in query_upper:
-            logger.warning(f"Dangerous keyword detected: {keyword}")
-            raise SandboxExecutionError(f"Dangerous keyword detected: {keyword}")
+            logger.warning(f"Keyword berbahaya terdeteksi: {keyword}")
+            raise SandboxExecutionError(f"Keyword berbahaya terdeteksi: {keyword}")
 
     return query.strip().rstrip(";").strip()
 
@@ -91,7 +91,7 @@ async def execute_query_in_sandbox(
             # 2. Arahkan unqualified table names ke skema sandbox.
             await conn.execute(text("SET search_path = sandbox"))
 
-            # 3. Terapkan timeout SEBELUM query user dijalankan.
+            # 3. Terapkan timeout SEBELUM query dijalankan.
             await conn.execute(text(f"SET LOCAL statement_timeout = {timeout_ms}"))
 
             # 4. Jalankan query user.
@@ -107,7 +107,7 @@ async def execute_query_in_sandbox(
     except SandboxExecutionError:
         raise
     except asyncio.TimeoutError:
-        logger.error(f"Query timeout after {timeout_ms}ms: {clean_query!r}")
+        logger.error(f"Query timeout setelah {timeout_ms}ms: {clean_query!r}")
         raise SandboxExecutionError(f"Query execution timeout ({timeout_ms}ms)")
     except Exception as e:
         logger.error(f"Sandbox execution error: {e}")

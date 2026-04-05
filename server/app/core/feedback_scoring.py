@@ -1,8 +1,8 @@
 """
-NLP Feedback Quality Scoring Module - Tech Specs v4.2 Section 6.6 (Revised)
+Modul NLP Feedback Quality Scoring - Tech Specs v4.2 Section 6.6 (Revised)
 
-Implements weighted keyword matching for peer review feedback quality assessment.
-Based on Kerman et al. (2024) cognitive features and ACM Bloom's for Computing (2023).
+Implementasi weighted keyword matching untuk assessment kualitas peer review feedback.
+Berdasarkan Kerman et al. (2024) cognitive features dan ACM Bloom's for Computing (2023).
 """
 
 from typing import List
@@ -73,21 +73,21 @@ def _count_keywords(text: str, keywords: List[str]) -> int:
 
 def calculate_system_score(feedback_text: str) -> float:
     """
-    Calculate feedback quality score using weighted keyword matching.
+    Hitung feedback quality score pakai weighted keyword matching.
 
-    Algorithm (Section 6.6 revised):
+    Algoritma (Section 6.6 revised):
     - Tier 1: Structural Quality (weighted components)
       - Identification (0.3): Problem localization & error detection
-      - Justification (0.4): Reasoning & causal explanation (highest weight)
+      - Justification (0.4): Reasoning & causal explanation (bobot tertinggi)
       - Constructive (0.3): Actionable recommendations
     - Tier 2: Cognitive Depth Bonus (Bloom's Taxonomy)
-      - Up to 0.2 bonus for higher-order verbs
+      - Up to 0.2 bonus untuk higher-order verbs
 
     Args:
-        feedback_text: The reviewer's feedback text
+        feedback_text: Feedback text dari reviewer
 
     Returns:
-        Quality score in range [0.0, 1.0]
+        Quality score dalam range [0.0, 1.0]
     """
     # --- Pre-processing ---
     if not feedback_text or len(feedback_text.strip()) < 15:

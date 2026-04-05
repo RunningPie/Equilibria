@@ -65,11 +65,11 @@ def get_k_factor(total_attempts: int)->int:
         return K_FACTORS['expert']
 
 def calculate_success_rate(
-    successful_attempts: int,  # Ai: successful attempts (0 or 1 in prototype)
-    overall_attempts: int,     # A: total attempts (1, 2, or 3)
-    correct_tests: int,        # Tc: unit tests passed - mapped to binary sandbox result
-    performed_tests: int,      # Tp: unit tests performed - always 1 in prototype
-    time_used_ms: int,         # ti: time used
+    successful_attempts: int,  # Ai: successful attempts (0 atau 1 di prototype)
+    overall_attempts: int,     # A: total attempts (1, 2, atau 3)
+    correct_tests: int,        # Tc: unit tests passed - di-map ke binary sandbox result
+    performed_tests: int,      # Tp: unit tests performed - selalu 1 di prototype
+    time_used_ms: int,         # ti: waktu yang dipakai
     time_limit_ms: int = DEFAULT_TIME_LIMIT,
     discrimination: float = TIME_DISCRIMINATION
 ) -> float:
@@ -185,7 +185,6 @@ async def detect_stagnation(
 
     variance = numpy.var(deltas)  # population variance
     return variance < 165  # ε = 165
-
 
 def check_fallback_trigger(
     group_assignment: str,

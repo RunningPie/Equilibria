@@ -35,14 +35,14 @@ logger = get_loggers()[0]
 @router.post(
     "/start",
     response_model=PreTestSessionResponse,
-    summary="Start a pretest session"
+    summary="Mulai pretest session"
 )
 async def start_pretest(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 )-> JSONResponse:
     try:
-        # Check if user has completed pretest
+        # Cek apakah user sudah selesai pretest
         user = await db.execute(select(User).where(User.user_id == current_user.user_id))
         user = user.scalar_one_or_none()
         if user.has_completed_pretest:
@@ -95,7 +95,7 @@ async def start_pretest(
     "/question/current",
     response_model=PreTestQuestion,
     status_code=HTTP_200_OK,
-    summary="Get current question"
+    summary="Ambil soal saat ini"
 )
 async def get_current_question(
     current_user: User = Depends(get_current_user),
@@ -157,7 +157,7 @@ async def get_current_question(
     "/submit",
     response_model=PreTestResult,
     status_code=HTTP_200_OK,
-    summary="Submit an answer",
+    summary="Submit jawaban",
     description="Endpoint for users to submit pretest question answers. Also used for submitting the final answer to obtain initial rating"
 )
 async def submit_pretest_answer(

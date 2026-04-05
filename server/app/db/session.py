@@ -39,7 +39,7 @@ class DatabaseSession:
         
         if cls._engine is None:
             logger.info(
-                "Creating new database engine",
+                "Membuat database engine baru",
                 extra={"event_type": "DB_ENGINE_INIT"}
             )
             cls._engine = create_async_engine(
@@ -54,7 +54,7 @@ class DatabaseSession:
             )
             
             logger.info(
-                "Database engine created",
+                "Database engine berhasil dibuat",
                 extra={"event_type": "DB_ENGINE_CREATED"}
             )
         return cls._engine
@@ -66,7 +66,7 @@ class DatabaseSession:
         '''
         if cls._session_factory is None:
             logger.info(
-                "Creating new session factory",
+                "Membuat session factory baru",
                 extra={"event_type": "DB_SESSION_FACTORY_INIT"}
             )
             cls._session_factory = async_sessionmaker(
@@ -75,7 +75,7 @@ class DatabaseSession:
                 class_=AsyncSession
             )
             logger.info(
-                "Session factory created",
+                "Session factory berhasil dibuat",
                 extra={"event_type": "DB_SESSION_FACTORY_CREATED"}
             )
         return cls._session_factory
@@ -83,18 +83,18 @@ class DatabaseSession:
     @classmethod
     async def close(cls) -> None:
         '''
-        Close engine and cleanup
+        Tutup engine dan cleanup
         '''
         if cls._engine is not None:
             logger.info(
-                "Closing database engine",
+                "Menutup database engine",
                 extra={"event_type": "DB_ENGINE_CLOSE"}
             )
             await cls._engine.dispose()
             cls._engine = None
             cls._session_factory = None
             logger.info(
-                "Database engine closed",
+                "Database engine berhasil ditutup",
                 extra={"event_type": "DB_ENGINE_CLOSED"}
             )
     
@@ -115,7 +115,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception as e:
             await session.rollback()
             logger.error(
-                f"Database session error: {str(e)}",
+                f"Error session database: {str(e)}",
                 extra={"event_type": "DB_SESSION_ERROR"}
             )
             raise
@@ -135,15 +135,15 @@ async def init_db():
     try:
         engine = DatabaseSession.get_engine()
         async with engine.connect() as conn:
-            await conn.execute(select(1))  # ✅ Gunakan select() dari SQLAlchemy
+            await conn.execute(select(1))  # Gunakan select() dari SQLAlchemy
             await conn.commit()
         logger.info(
-            "Database connection initialized successfully",
+            "Koneksi database berhasil diinisialisasi",
             extra={"event_type": "DB_CONNECTION_INIT_SUCCESS"}
         )
     except Exception as e:
         logger.error(
-            f"Database connection initialization failed: {str(e)}",
+            f"Inisialisasi koneksi database gagal: {str(e)}",
             extra={"event_type": "DB_CONNECTION_INIT_ERROR"}
         )
         raise
