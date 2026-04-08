@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from typing import List
 
 from starlette.status import (
@@ -41,21 +42,20 @@ system_logger, assessment_logger = get_loggers()
     response_model=JSendResponse[List[PeerSessionInboxItem]],
     status_code=status.HTTP_200_OK,
     summary="Get reviewer's inbox",
-    description="List all pending peer review tasks for the current user as reviewer"
+    description="List all peer review sessions where current user is the reviewer"
 )
 async def get_inbox(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Ambil list peer session yang user saat ini jadi reviewer
-    dan status PENDING_REVIEW (menunggu feedback reviewer).
+    Ambil list peer session yang user saat ini jadi reviewer.
+    Return semua status: PENDING_REVIEW, WAITING_CONFIRMATION, COMPLETED.
     """
     try:
         result = await db.execute(
             select(PeerSession)
             .where(PeerSession.reviewer_id == current_user.user_id)
-            .where(PeerSession.status == "PENDING_REVIEW")
             .order_by(PeerSession.created_at.desc())
         )
         peer_sessions = result.scalars().all()
@@ -107,21 +107,26 @@ async def get_review_task(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Ambil detail peer session yang user saat ini jadi reviewer.
-    Return info soal dan query requester (identitas requester disembunyikan).
+    Ambil detail peer session yang user saat ini jadi reviewer atau requester.
+    Return info soal dan query requester (identitas requester disembunyikan untuk reviewer).
     """
     try:
         result = await db.execute(
             select(PeerSession)
             .where(PeerSession.session_id == session_id)
-            .where(PeerSession.reviewer_id == current_user.user_id)
+            .where(
+                or_(
+                    PeerSession.reviewer_id == current_user.user_id,
+                    PeerSession.requester_id == current_user.user_id
+                )
+            )
         )
         peer_session = result.scalar_one_or_none()
 
         if not peer_session:
             return jsend_fail(
                 code=HTTP_404_NOT_FOUND,
-                message="Peer session not found or you are not the reviewer"
+                message="Peer session not found or you are not the reviewer/requester"
             )
 
         # Ambil detail soal
