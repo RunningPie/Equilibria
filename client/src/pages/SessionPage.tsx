@@ -8,6 +8,7 @@ import { sessionService } from '../services/session';
 import { useAuthStore } from '../store/authStore';
 import { toast } from '../hooks/toastState';
 import { Modal } from '../components/Modal';
+import { ReferenceImage } from '../components/ReferenceImage';
 import type { Question, SubmitResult, NextResult } from '../types';
 
 /**
@@ -419,14 +420,13 @@ export function SessionPage() {
                 <li>Your rating adjusts based on correctness</li>
               </ul>
               
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Database Schema Diagram</h3>
-              <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <svg className="w-10 h-10 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                </svg>
-                <p className="text-xs text-gray-500">Relational diagram will be displayed here</p>
-                <p className="text-xs text-gray-400 mt-1">Showing table relationships for this question</p>
-              </div>
+              <ReferenceImage
+                src="/relational_diagram.png"
+                title="Database Schema Diagram"
+                alt="Database relational diagram showing table relationships"
+                description="Reference this schema when writing your SQL queries"
+                allowZoom
+              />
             </div>
           </div>
 
@@ -445,6 +445,7 @@ export function SessionPage() {
                 theme={oneDark}
                 onChange={(value) => setSqlQuery(value)}
                 placeholder="-- Write your SQL query here\nSELECT * FROM ..."
+                style={{ fontSize: '14px' }}
                 basicSetup={{
                   lineNumbers: true,
                   highlightActiveLineGutter: true,

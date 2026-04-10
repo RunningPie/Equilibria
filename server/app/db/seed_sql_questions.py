@@ -212,7 +212,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH01-Q016",
         "module_id": "CH01",
-        "content": "Fakultas sedang mempertimbangkan untuk menggandakan SKS mata kuliah tertentu. Coba tampilin SKS baru kalau SKS mata kuliah yang ada dikali 2. Kasih alias biar jelas!",
+        "content": "Fakultas sedang mempertimbangkan untuk menggandakan SKS mata kuliah tertentu. Coba tampilin kode matkul, SKS lama, dan SKS baru kalau SKS mata kuliah yang ada dikali 2. Kasih alias `double_credits` biar jelas!",
         "target_query": "SELECT course_id, credits, (credits * 2) AS double_credits FROM course;",
         "initial_difficulty": 1225.0,
         "current_difficulty": 1225.0,

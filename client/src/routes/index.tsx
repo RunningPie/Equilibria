@@ -12,6 +12,7 @@ import PretestPage from '../pages/PretestPage';
 import ProfilePage from '../pages/ProfilePage';
 import PeerHubPage from '../pages/PeerHubPage';
 import LeaderboardPage from '../pages/LeaderboardPage';
+import ModuleMaterialsPage from '../pages/ModuleMaterialsPage';
 import NotFound from '../pages/NotFound';
 
 /**
@@ -39,6 +40,7 @@ export function AppRoutes() {
         <Route element={<PretestGate />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/session/:sessionId" element={<SessionPage />} />
+          <Route path="/materials/:moduleId" element={<ModuleMaterialsPage />} />
         </Route>
 
         {/* Pretest - only for users who haven't completed it */}

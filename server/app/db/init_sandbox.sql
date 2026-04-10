@@ -223,7 +223,8 @@ INSERT INTO sandbox.section VALUES
 ('MU-199', '1', 'Spring', 2010, 'Packard', '101', 'D'),
 ('PHY-101', '1', 'Fall', 2009, 'Watson', '100', 'A'),
 ('BIO-301', '1', 'Summer', 2009, 'Watson', '120', 'E'),
-('BIO-399', '1', 'Summer', 2010, 'Taylor', '3108', 'G')
+('BIO-399', '1', 'Summer', 2010, 'Taylor', '3108', 'G'),
+('CS-101', '2', 'Spring', 2010, 'Painter', '514', 'F')
 ON CONFLICT (course_id, sec_id, semester, year) DO NOTHING;
 
 INSERT INTO sandbox.takes VALUES

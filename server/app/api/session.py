@@ -905,15 +905,16 @@ async def get_next_question_endpoint(
             if stagnation_detected:
                 # Update flag di assessment_log (final_attempt sudah di-set sebelumnya)
                 final_attempt.stagnation_detected = True
-                
+
                 # Update flag di user
                 current_user.stagnation_ever_detected = True
-                
-                if current_user.group_assignment == 'A':
-                    # Grup A: Trigger intervensi (peer matching)
+
+                if current_user.group_assignment == 'A' and not final_attempt.is_correct:
+                    # Grup A: Trigger intervensi (peer matching) HANYA jika jawaban salah
+                    # Stagnation yang benar tidak memicu peer session
                     event_type = (
-                        "STAGNATION_DETECTED" 
-                        if stagnation_source == 'VARIANCE' 
+                        "STAGNATION_DETECTED"
+                        if stagnation_source == 'VARIANCE'
                         else "STAGNATION_FALLBACK_TRIGGER"
                     )
                     system_logger.info(
@@ -921,10 +922,10 @@ async def get_next_question_endpoint(
                         f"session={session_id}, source={stagnation_source}",
                         extra={"event_type": event_type, "session_id": session_id}
                     )
-                    
+
                     # Peer Matching: Cari peer heterogen per Section 6.4
                     peer = await find_heterogeneous_peer(current_user, db)
-                    
+
                     if peer:
                         # Create peer session linking requester and reviewer
                         await create_peer_session(
