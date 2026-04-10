@@ -1,75 +1,176 @@
--- =====================================================
--- EQUILIBRIA SANDBOX INITIALIZATION SCRIPT
--- Classic University Schema (Silberschatz-style)
--- This script runs ONLY on first database initialization
--- =====================================================
+### 3.2 Sandbox Schema (`sandbox`)
 
--- 1. Create Sandbox Schema
+#### Struktur Tabel
+
+**`sandbox.student`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `ID` | VARCHAR(10) | PK, e.g. `'00128'`, `'12345'` |
+| `name` | VARCHAR(100) | Student full name |
+| `dept_name` | VARCHAR(50) | FK → department |
+| `tot_cred` | INTEGER | Total credits earned |
+
+**`sandbox.course`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `course_id` | VARCHAR(10) | PK, e.g. `'CS-101'`, `'BIO-301'` |
+| `title` | VARCHAR(100) | Course title |
+| `dept_name` | VARCHAR(50) | FK → department |
+| `credits` | INTEGER | Credit hours |
+
+**`sandbox.instructor`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `ID` | VARCHAR(10) | PK, e.g. `'10101'`, `'12121'` |
+| `name` | VARCHAR(100) | Instructor full name |
+| `dept_name` | VARCHAR(50) | FK → department |
+| `salary` | DECIMAL(10,2) | Annual salary |
+
+**`sandbox.department`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `dept_name` | VARCHAR(50) | PK, e.g. `'Comp. Sci.'`, `'Physics'` |
+| `building` | VARCHAR(50) | Building name |
+| `budget` | DECIMAL(12,2) | Department budget |
+
+**`sandbox.classroom`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `building` | VARCHAR(50) | PK component |
+| `room_no` | VARCHAR(10) | PK component |
+| `capacity` | INTEGER | Room capacity |
+
+**`sandbox.section`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `course_id` | VARCHAR(10) | FK → course, composite PK |
+| `sec_id` | VARCHAR(5) | Section identifier, e.g. `'1'`, `'2'` |
+| `semester` | VARCHAR(10) | e.g. `'Fall'`, `'Spring'` |
+| `year` | INTEGER | e.g. `2009`, `2010` |
+| `building` | VARCHAR(50) | FK → classroom |
+| `room_no` | VARCHAR(10) | FK → classroom |
+| `time_slot_id` | VARCHAR(10) | FK → time_slot |
+
+**`sandbox.time_slot`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `time_slot_id` | VARCHAR(10) | PK, e.g. `'A'`, `'B'`, `'C'` |
+| `day` | VARCHAR(10) | Day of week |
+| `start_time` | TIME | Start time |
+| `end_time` | TIME | End time |
+
+**`sandbox.takes`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `ID` | VARCHAR(10) | FK → student, composite PK |
+| `course_id` | VARCHAR(10) | FK → section |
+| `sec_id` | VARCHAR(5) | FK → section |
+| `semester` | VARCHAR(10) | FK → section |
+| `year` | INTEGER | FK → section |
+| `grade` | VARCHAR(2) | Letter grade |
+
+**`sandbox.teaches`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `ID` | VARCHAR(10) | FK → instructor |
+| `course_id` | VARCHAR(10) | FK → section |
+| `sec_id` | VARCHAR(5) | FK → section |
+| `semester` | VARCHAR(10) | FK → section |
+| `year` | INTEGER | FK → section |
+
+**`sandbox.prereq`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `course_id` | VARCHAR(10) | FK → course, composite PK |
+| `prereq_id` | VARCHAR(10) | FK → course |
+
+**`sandbox.advisor`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `s_ID` | VARCHAR(10) | FK → student, composite PK |
+| `i_ID` | VARCHAR(10) | FK → instructor |
+
+---
+
+#### Init Script (`db/init_sandbox.sql`)
+
+```sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE SCHEMA IF NOT EXISTS sandbox;
 
--- 2. Create Sandbox Executor Role (LOGIN with password)
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sandbox_executor') THEN
-        CREATE ROLE sandbox_executor LOGIN PASSWORD 'sandbox_pass_123';
-    END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sandbox_executor') THEN
+    CREATE ROLE sandbox_executor LOGIN PASSWORD 'sandbox_pass';
+  END IF;
 END
 $$;
 
--- 3. Grant SELECT Only on Sandbox Schema
+REVOKE ALL ON SCHEMA public FROM sandbox_executor;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM sandbox_executor;
+
 GRANT USAGE ON SCHEMA sandbox TO sandbox_executor;
 GRANT SELECT ON ALL TABLES IN SCHEMA sandbox TO sandbox_executor;
-
--- 4. Auto-grant for Future Tables
 ALTER DEFAULT PRIVILEGES IN SCHEMA sandbox GRANT SELECT ON TABLES TO sandbox_executor;
+ALTER ROLE sandbox_executor SET search_path = sandbox;
 
--- 5. REVOKE Access to Public Schema (Security)
-REVOKE ALL ON SCHEMA public FROM sandbox_executor;
+-- =====================================================
+-- Expanded University Schema (Classic Silberschatz-style)
+-- =====================================================
 
--- 6. Create Sandbox Tables (Complete University Schema per Tech Specs v4)
-
-CREATE TABLE IF NOT EXISTS sandbox.department (
+CREATE TABLE sandbox.department (
     dept_name   VARCHAR(50)     PRIMARY KEY,
     building    VARCHAR(50)     NOT NULL,
     budget      DECIMAL(12,2)   NOT NULL CHECK (budget > 0)
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.classroom (
+CREATE TABLE sandbox.classroom (
     building    VARCHAR(50),
     room_no     VARCHAR(10),
     capacity    INTEGER         NOT NULL CHECK (capacity > 0),
     PRIMARY KEY (building, room_no)
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.course (
+CREATE TABLE sandbox.course (
     course_id   VARCHAR(10)     PRIMARY KEY,
     title       VARCHAR(100)    NOT NULL,
     dept_name   VARCHAR(50)     NOT NULL REFERENCES sandbox.department(dept_name),
     credits     INTEGER         NOT NULL CHECK (credits > 0)
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.instructor (
+CREATE TABLE sandbox.instructor (
     ID          VARCHAR(10)     PRIMARY KEY,
     name        VARCHAR(100)    NOT NULL,
     dept_name   VARCHAR(50)     NOT NULL REFERENCES sandbox.department(dept_name),
     salary      DECIMAL(10,2)   CHECK (salary > 0)
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.student (
+CREATE TABLE sandbox.student (
     ID          VARCHAR(10)     PRIMARY KEY,
     name        VARCHAR(100)    NOT NULL,
     dept_name   VARCHAR(50)     NOT NULL REFERENCES sandbox.department(dept_name),
     tot_cred    INTEGER         NOT NULL DEFAULT 0 CHECK (tot_cred >= 0)
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.time_slot (
+CREATE TABLE sandbox.time_slot (
     time_slot_id    VARCHAR(10)     PRIMARY KEY,
     day             VARCHAR(10)     NOT NULL,
     start_time      TIME            NOT NULL,
     end_time        TIME            NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.section (
+CREATE TABLE sandbox.section (
     course_id       VARCHAR(10)     REFERENCES sandbox.course(course_id),
     sec_id          VARCHAR(5),
     semester        VARCHAR(10),
@@ -81,7 +182,7 @@ CREATE TABLE IF NOT EXISTS sandbox.section (
     FOREIGN KEY (building, room_no) REFERENCES sandbox.classroom(building, room_no)
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.takes (
+CREATE TABLE sandbox.takes (
     ID          VARCHAR(10)     REFERENCES sandbox.student(ID),
     course_id   VARCHAR(10),
     sec_id      VARCHAR(5),
@@ -93,7 +194,7 @@ CREATE TABLE IF NOT EXISTS sandbox.takes (
         REFERENCES sandbox.section(course_id, sec_id, semester, year)
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.teaches (
+CREATE TABLE sandbox.teaches (
     ID          VARCHAR(10)     REFERENCES sandbox.instructor(ID),
     course_id   VARCHAR(10),
     sec_id      VARCHAR(5),
@@ -104,19 +205,21 @@ CREATE TABLE IF NOT EXISTS sandbox.teaches (
         REFERENCES sandbox.section(course_id, sec_id, semester, year)
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.prereq (
+CREATE TABLE sandbox.prereq (
     course_id   VARCHAR(10)     REFERENCES sandbox.course(course_id),
     prereq_id   VARCHAR(10)     REFERENCES sandbox.course(course_id),
     PRIMARY KEY (course_id, prereq_id)
 );
 
-CREATE TABLE IF NOT EXISTS sandbox.advisor (
+CREATE TABLE sandbox.advisor (
     s_ID        VARCHAR(10)     REFERENCES sandbox.student(ID),
     i_ID        VARCHAR(10)     REFERENCES sandbox.instructor(ID),
     PRIMARY KEY (s_ID)
 );
 
--- 7. Insert Comprehensive Sample Data (per Tech Specs v4)
+-- ============================================
+-- Sample Data Insertion
+-- ============================================
 
 INSERT INTO sandbox.department VALUES
 ('Comp. Sci.', 'Taylor', 100000),
@@ -126,8 +229,7 @@ INSERT INTO sandbox.department VALUES
 ('Finance', 'Painter', 120000),
 ('History', 'Painter', 50000),
 ('Biology', 'Watson', 90000),
-('Math', 'Taylor', 75000)
-ON CONFLICT (dept_name) DO NOTHING;
+('Math', 'Taylor', 75000);
 
 INSERT INTO sandbox.classroom VALUES
 ('Packard', '101', 500),
@@ -136,8 +238,7 @@ INSERT INTO sandbox.classroom VALUES
 ('Watson', '100', 30),
 ('Watson', '120', 50),
 ('Taylor', '3108', 150),
-('Taylor', '3126', 80)
-ON CONFLICT (building, room_no) DO NOTHING;
+('Taylor', '3126', 80);
 
 INSERT INTO sandbox.course VALUES
 ('CS-101', 'Intro. to Computer Science', 'Comp. Sci.', 4),
@@ -153,8 +254,7 @@ INSERT INTO sandbox.course VALUES
 ('FIN-201', 'Investment Banking', 'Finance', 3),
 ('MU-199', 'Music Video Production', 'Music', 3),
 ('MAT-101', 'Calculus I', 'Math', 4),
-('MAT-201', 'Linear Algebra', 'Math', 3)
-ON CONFLICT (course_id) DO NOTHING;
+('MAT-201', 'Linear Algebra', 'Math', 3);
 
 INSERT INTO sandbox.instructor VALUES
 ('10101', 'Srinivasan', 'Comp. Sci.', 65000),
@@ -168,8 +268,7 @@ INSERT INTO sandbox.instructor VALUES
 ('76543', 'Singh', 'Finance', 80000),
 ('76766', 'Crick', 'Biology', 72000),
 ('83821', 'Brandt', 'Comp. Sci.', 92000),
-('98345', 'Kim', 'Elec. Eng.', 80000)
-ON CONFLICT (ID) DO NOTHING;
+('98345', 'Kim', 'Elec. Eng.', 80000);
 
 INSERT INTO sandbox.student VALUES
 ('00128', 'Zhang', 'Comp. Sci.', 102),
@@ -187,8 +286,7 @@ INSERT INTO sandbox.student VALUES
 ('98988', 'Tanaka', 'Biology', 120),
 ('11111', 'Adams', 'Comp. Sci.', 85),
 ('22222', 'Baker', 'Physics', 72),
-('33333', 'Cooper', 'Finance', 95)
-ON CONFLICT (ID) DO NOTHING;
+('33333', 'Cooper', 'Finance', 95);
 
 INSERT INTO sandbox.time_slot VALUES
 ('A', 'M', '08:00', '08:50'),
@@ -206,8 +304,7 @@ INSERT INTO sandbox.time_slot VALUES
 ('F', 'T', '14:30', '15:45'),
 ('F', 'Th', '14:30', '15:45'),
 ('G', 'F', '14:00', '16:00'),
-('H', 'W', '10:00', '12:30')
-ON CONFLICT (time_slot_id) DO NOTHING;
+('H', 'W', '10:00', '12:30');
 
 INSERT INTO sandbox.section VALUES
 ('CS-101', '1', 'Fall', 2009, 'Packard', '101', 'H'),
@@ -223,13 +320,13 @@ INSERT INTO sandbox.section VALUES
 ('MU-199', '1', 'Spring', 2010, 'Packard', '101', 'D'),
 ('PHY-101', '1', 'Fall', 2009, 'Watson', '100', 'A'),
 ('BIO-301', '1', 'Summer', 2009, 'Watson', '120', 'E'),
-('BIO-399', '1', 'Summer', 2010, 'Taylor', '3108', 'G')
-ON CONFLICT (course_id, sec_id, semester, year) DO NOTHING;
+('BIO-399', '1', 'Summer', 2010, 'Taylor', '3108', 'G');
 
 INSERT INTO sandbox.takes VALUES
 ('00128', 'CS-101', '1', 'Fall', 2009, 'A'),
 ('00128', 'CS-347', '1', 'Fall', 2009, 'A-'),
 ('12345', 'CS-101', '1', 'Fall', 2009, 'C'),
+('12345', 'CS-190', '2', 'Spring', 2009, 'A'),
 ('12345', 'CS-315', '1', 'Spring', 2010, 'A'),
 ('12345', 'CS-347', '1', 'Fall', 2009, 'A'),
 ('19991', 'HIS-351', '1', 'Spring', 2010, 'B'),
@@ -239,6 +336,7 @@ INSERT INTO sandbox.takes VALUES
 ('45678', 'CS-101', '2', 'Spring', 2010, 'B+'),
 ('45678', 'CS-319', '1', 'Spring', 2010, 'B'),
 ('54321', 'CS-101', '1', 'Fall', 2009, 'A-'),
+('54321', 'CS-190', '2', 'Spring', 2009, 'B+'),
 ('55739', 'MU-199', '1', 'Spring', 2010, 'A-'),
 ('76543', 'CS-101', '2', 'Spring', 2010, 'A'),
 ('76543', 'CS-319', '2', 'Spring', 2010, 'A'),
@@ -249,8 +347,7 @@ INSERT INTO sandbox.takes VALUES
 ('98988', 'BIO-399', '1', 'Summer', 2010, 'A'),
 ('11111', 'CS-101', '1', 'Fall', 2009, 'B+'),
 ('22222', 'PHY-101', '1', 'Fall', 2009, 'A'),
-('33333', 'FIN-201', '1', 'Spring', 2010, 'A-')
-ON CONFLICT (ID, course_id, sec_id, semester, year) DO NOTHING;
+('33333', 'FIN-201', '1', 'Spring', 2010, 'A-');
 
 INSERT INTO sandbox.teaches VALUES
 ('10101', 'CS-101', '1', 'Fall', 2009),
@@ -266,8 +363,7 @@ INSERT INTO sandbox.teaches VALUES
 ('76766', 'BIO-399', '1', 'Summer', 2010),
 ('83821', 'CS-101', '2', 'Spring', 2010),
 ('83821', 'CS-319', '2', 'Spring', 2010),
-('98345', 'EE-181', '1', 'Spring', 2009)
-ON CONFLICT (ID, course_id, sec_id, semester, year) DO NOTHING;
+('98345', 'EE-181', '1', 'Spring', 2009);
 
 INSERT INTO sandbox.prereq VALUES
 ('CS-201', 'CS-101'),
@@ -275,8 +371,7 @@ INSERT INTO sandbox.prereq VALUES
 ('CS-319', 'CS-101'),
 ('CS-347', 'CS-201'),
 ('BIO-399', 'BIO-301'),
-('MAT-201', 'MAT-101')
-ON CONFLICT (course_id, prereq_id) DO NOTHING;
+('MAT-201', 'MAT-101');
 
 INSERT INTO sandbox.advisor VALUES
 ('00128', '10101'),
@@ -293,14 +388,5 @@ INSERT INTO sandbox.advisor VALUES
 ('98988', '76766'),
 ('11111', '10101'),
 ('22222', '22222'),
-('33333', '12121')
-ON CONFLICT (s_ID) DO NOTHING;
-
--- 8. Grant SELECT to equilibria_user on sandbox (for testing)
-DO $$
-BEGIN
-    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'equilibria_user') THEN
-        GRANT SELECT ON ALL TABLES IN SCHEMA sandbox TO equilibria_user;
-    END IF;
-END
-$$;
+('33333', '12121');
+```

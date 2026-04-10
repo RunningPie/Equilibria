@@ -484,178 +484,104 @@ GROUP BY user_id;
 
 #### Struktur Tabel
 
-**`sandbox.mahasiswa`**
+**`sandbox.student`**
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `nim` | VARCHAR(15) | PK |
-| `nama` | VARCHAR(100) | |
-| `jurusan` | VARCHAR(10) | e.g. `'IF'`, `'EL'`, `'MK'` |
-| `angkatan` | INTEGER | e.g. 2021 |
-| `ipk` | DECIMAL(3,2) | 0.00–4.00 |
+| `ID` | VARCHAR(10) | PK, e.g. `'00128'`, `'12345'` |
+| `name` | VARCHAR(100) | Student full name |
+| `dept_name` | VARCHAR(50) | FK → department |
+| `tot_cred` | INTEGER | Total credits earned |
 
-**`sandbox.matakuliah`**
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `kode_mk` | VARCHAR(10) | PK |
-| `nama_mk` | VARCHAR(100) | |
-| `sks` | INTEGER | |
-| `semester` | INTEGER | |
-
-**`sandbox.dosen`**
+**`sandbox.course`**
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `nip` | VARCHAR(20) | PK |
-| `nama` | VARCHAR(100) | |
-| `bidang` | VARCHAR(50) | |
+| `course_id` | VARCHAR(10) | PK, e.g. `'CS-101'`, `'BIO-301'` |
+| `title` | VARCHAR(100) | Course title |
+| `dept_name` | VARCHAR(50) | FK → department |
+| `credits` | INTEGER | Credit hours |
 
-**`sandbox.frs`**
+**`sandbox.instructor`**
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `nim` | VARCHAR(15) | FK → mahasiswa, composite PK |
-| `kode_mk` | VARCHAR(10) | FK → matakuliah, composite PK |
-| `nip_dosen` | VARCHAR(20) | FK → dosen |
-| `semester` | INTEGER | |
-| `nilai` | CHAR(2) | `'A'`, `'AB'`, `'B'`, `'BC'`, `'C'`, `'D'`, `'E'` |
+| `ID` | VARCHAR(10) | PK, e.g. `'10101'`, `'12121'` |
+| `name` | VARCHAR(100) | Instructor full name |
+| `dept_name` | VARCHAR(50) | FK → department |
+| `salary` | DECIMAL(10,2) | Annual salary |
 
-#### Init Script (`db/init_sandbox.sql`)
+**`sandbox.department`**
 
-```sql
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE SCHEMA IF NOT EXISTS sandbox;
+| Column | Type | Description |
+|--------|------|-------------|
+| `dept_name` | VARCHAR(50) | PK, e.g. `'Comp. Sci.'`, `'Physics'` |
+| `building` | VARCHAR(50) | Building name |
+| `budget` | DECIMAL(12,2) | Department budget |
 
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sandbox_executor') THEN
-    CREATE ROLE sandbox_executor LOGIN PASSWORD 'sandbox_pass';
-  END IF;
-END
-$$;
+**`sandbox.classroom`**
 
-REVOKE ALL ON SCHEMA public FROM sandbox_executor;
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM sandbox_executor;
+| Column | Type | Description |
+|--------|------|-------------|
+| `building` | VARCHAR(50) | PK component |
+| `room_no` | VARCHAR(10) | PK component |
+| `capacity` | INTEGER | Room capacity |
 
-GRANT USAGE ON SCHEMA sandbox TO sandbox_executor;
-GRANT SELECT ON ALL TABLES IN SCHEMA sandbox TO sandbox_executor;
-ALTER DEFAULT PRIVILEGES IN SCHEMA sandbox GRANT SELECT ON TABLES TO sandbox_executor;
-ALTER ROLE sandbox_executor SET search_path = sandbox;
+**`sandbox.section`**
 
-CREATE TABLE sandbox.mahasiswa (
-    nim        VARCHAR(15)    PRIMARY KEY,
-    nama       VARCHAR(100)   NOT NULL,
-    jurusan    VARCHAR(10)    NOT NULL,
-    angkatan   INTEGER        NOT NULL,
-    ipk        DECIMAL(3,2)   CHECK (ipk BETWEEN 0.0 AND 4.0)
-);
+| Column | Type | Description |
+|--------|------|-------------|
+| `course_id` | VARCHAR(10) | FK → course, composite PK |
+| `sec_id` | VARCHAR(5) | Section identifier, e.g. `'1'`, `'2'` |
+| `semester` | VARCHAR(10) | e.g. `'Fall'`, `'Spring'` |
+| `year` | INTEGER | e.g. `2009`, `2010` |
+| `building` | VARCHAR(50) | FK → classroom |
+| `room_no` | VARCHAR(10) | FK → classroom |
+| `time_slot_id` | VARCHAR(10) | FK → time_slot |
 
-CREATE TABLE sandbox.matakuliah (
-    kode_mk    VARCHAR(10)    PRIMARY KEY,
-    nama_mk    VARCHAR(100)   NOT NULL,
-    sks        INTEGER        NOT NULL,
-    semester   INTEGER        NOT NULL
-);
+**`sandbox.time_slot`**
 
-CREATE TABLE sandbox.dosen (
-    nip        VARCHAR(20)    PRIMARY KEY,
-    nama       VARCHAR(100)   NOT NULL,
-    bidang     VARCHAR(50)
-);
+| Column | Type | Description |
+|--------|------|-------------|
+| `time_slot_id` | VARCHAR(10) | PK, e.g. `'A'`, `'B'`, `'C'` |
+| `day` | VARCHAR(10) | Day of week |
+| `start_time` | TIME | Start time |
+| `end_time` | TIME | End time |
 
-CREATE TABLE sandbox.frs (
-    nim        VARCHAR(15)    REFERENCES sandbox.mahasiswa(nim),
-    kode_mk    VARCHAR(10)    REFERENCES sandbox.matakuliah(kode_mk),
-    nip_dosen  VARCHAR(20)    REFERENCES sandbox.dosen(nip),
-    semester   INTEGER        NOT NULL,
-    nilai      CHAR(2)        CHECK (nilai IN ('A','AB','B','BC','C','D','E')),
-    PRIMARY KEY (nim, kode_mk)
-);
+**`sandbox.takes`**
 
-INSERT INTO sandbox.dosen VALUES
-('D001', 'Budi Santoso', 'Basis Data'),
-('D002', 'Siti Rahayu', 'Algoritma'),
-('D003', 'Ahmad Fauzi', 'Jaringan Komputer'),
-('D004', 'Dewi Lestari', 'Rekayasa Perangkat Lunak'),
-('D005', 'Riko Pratama', 'Kecerdasan Buatan');
+| Column | Type | Description |
+|--------|------|-------------|
+| `ID` | VARCHAR(10) | FK → student, composite PK |
+| `course_id` | VARCHAR(10) | FK → section |
+| `sec_id` | VARCHAR(5) | FK → section |
+| `semester` | VARCHAR(10) | FK → section |
+| `year` | INTEGER | FK → section |
+| `grade` | VARCHAR(2) | Letter grade |
 
-INSERT INTO sandbox.matakuliah VALUES
-('IF2240', 'Basis Data', 3, 4),
-('IF2110', 'Algoritma dan Struktur Data', 4, 3),
-('IF3110', 'Pengembangan Aplikasi Berbasis Web', 3, 5),
-('IF3140', 'Manajemen Basis Data', 3, 6),
-('IF2230', 'Organisasi dan Arsitektur Komputer', 3, 4),
-('IF3170', 'Kecerdasan Buatan', 3, 5),
-('IF2150', 'Rekayasa Perangkat Lunak', 3, 4),
-('IF3130', 'Jaringan Komputer', 3, 5),
-('IF4073', 'Interaksi Manusia dan Komputer', 3, 6),
-('IF4091', 'Tugas Akhir I', 3, 7);
+**`sandbox.teaches`**
 
-INSERT INTO sandbox.mahasiswa VALUES
-('18222001', 'Adi Nugroho',      'IF', 2022, 3.75),
-('18222002', 'Bela Kusuma',      'IF', 2022, 2.90),
-('18222003', 'Candra Wijaya',    'IF', 2022, 3.20),
-('18222004', 'Diana Putri',      'IF', 2022, 3.85),
-('18222005', 'Eka Saputra',      'IF', 2022, 2.45),
-('18222006', 'Farhan Malik',     'IF', 2021, 3.60),
-('18222007', 'Gita Ananda',      'IF', 2021, 3.10),
-('18222008', 'Hendra Yusuf',     'IF', 2021, 2.75),
-('18222009', 'Ira Salsabila',    'IF', 2021, 3.95),
-('18222010', 'Joko Purnomo',     'IF', 2021, 3.30),
-('18222011', 'Kartika Dewi',     'EL', 2022, 3.50),
-('18222012', 'Lukman Hakim',     'EL', 2022, 2.60),
-('18222013', 'Maya Sari',        'EL', 2022, 3.15),
-('18222014', 'Naufal Rizki',     'MK', 2022, 3.70),
-('18222015', 'Olivia Tanjung',   'MK', 2022, 3.40),
-('18222016', 'Pandu Arifin',     'IF', 2020, 3.80),
-('18222017', 'Qoriah Nisa',      'IF', 2020, 2.95),
-('18222018', 'Rendi Firmansyah', 'IF', 2020, 3.25),
-('18222019', 'Sari Oktaviani',   'IF', 2020, 3.65),
-('18222020', 'Taufik Rahman',    'IF', 2020, 2.80),
-('18222021', 'Umar Hamdani',     'IF', 2023, 3.10),
-('18222022', 'Vina Melati',      'IF', 2023, 3.55),
-('18222023', 'Wahyu Santoso',    'IF', 2023, 2.70),
-('18222024', 'Xena Pratiwi',     'IF', 2023, 3.90),
-('18222025', 'Yoga Wibisono',    'IF', 2023, 3.35),
-('18222026', 'Zara Halimah',     'EL', 2021, 3.45),
-('18222027', 'Aldi Firmandi',    'EL', 2021, 2.85),
-('18222028', 'Bella Tristanti',  'MK', 2021, 3.20),
-('18222029', 'Ciko Satria',      'MK', 2021, 3.75),
-('18222030', 'Dinda Permata',    'IF', 2022, 3.00);
+| Column | Type | Description |
+|--------|------|-------------|
+| `ID` | VARCHAR(10) | FK → instructor |
+| `course_id` | VARCHAR(10) | FK → section |
+| `sec_id` | VARCHAR(5) | FK → section |
+| `semester` | VARCHAR(10) | FK → section |
+| `year` | INTEGER | FK → section |
 
-INSERT INTO sandbox.frs VALUES
-('18222001', 'IF2240', 'D001', 4, 'A'),
-('18222001', 'IF2110', 'D002', 3, 'AB'),
-('18222001', 'IF3110', 'D004', 5, 'B'),
-('18222002', 'IF2240', 'D001', 4, 'BC'),
-('18222002', 'IF2110', 'D002', 3, 'B'),
-('18222002', 'IF2230', 'D003', 4, 'C'),
-('18222003', 'IF2240', 'D001', 4, 'B'),
-('18222003', 'IF3140', 'D001', 6, 'AB'),
-('18222004', 'IF2240', 'D001', 4, 'A'),
-('18222004', 'IF3170', 'D005', 5, 'A'),
-('18222005', 'IF2110', 'D002', 3, 'D'),
-('18222005', 'IF2240', 'D001', 4, 'C'),
-('18222006', 'IF3140', 'D001', 6, 'A'),
-('18222006', 'IF3110', 'D004', 5, 'AB'),
-('18222007', 'IF2240', 'D001', 4, 'B'),
-('18222008', 'IF2240', 'D001', 4, 'BC'),
-('18222009', 'IF3170', 'D005', 5, 'A'),
-('18222009', 'IF2240', 'D001', 4, 'A'),
-('18222010', 'IF2240', 'D001', 4, 'AB'),
-('18222011', 'IF2240', 'D001', 4, 'B'),
-('18222011', 'IF3130', 'D003', 5, 'AB'),
-('18222012', 'IF2110', 'D002', 3, 'C'),
-('18222013', 'IF3110', 'D004', 5, 'B'),
-('18222014', 'IF2240', 'D001', 4, 'A'),
-('18222015', 'IF3140', 'D001', 6, 'AB'),
-('18222016', 'IF4091', 'D004', 7, 'A'),
-('18222016', 'IF3140', 'D001', 6, 'A'),
-('18222017', 'IF2240', 'D001', 4, 'BC'),
-('18222018', 'IF3110', 'D004', 5, 'B'),
-('18222019', 'IF4091', 'D004', 7, 'AB');
-```
+**`sandbox.prereq`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `course_id` | VARCHAR(10) | FK → course, composite PK |
+| `prereq_id` | VARCHAR(10) | FK → course |
+
+**`sandbox.advisor`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `s_ID` | VARCHAR(10) | FK → student, composite PK |
+| `i_ID` | VARCHAR(10) | FK → instructor |
 
 ---
 
@@ -663,9 +589,9 @@ INSERT INTO sandbox.frs VALUES
 
 | Module | Topic Focus | Difficulty Range (D) | Jumlah Soal | Unlock Threshold |
 |--------|-------------|---------------------|-------------|------------------|
-| CH01 | Basic Selection | [1000, 1400] | 40 | Tidak ada (terbuka untuk semua) |
-| CH02 | Aggregation | [1200, 1600] | 40 | θ_individu ≥ 1300 |
-| CH03 | Advanced Querying | [1400, 1800] | 40 | θ_individu ≥ 1600 |
+| CH01 | Basic Selection | [1000, 1400] | 25 | Tidak ada (terbuka untuk semua) |
+| CH02 | Aggregation | [1200, 1600] | 25 | θ_individu ≥ 1300 |
+| CH03 | Advanced Querying | [1400, 1800] | 25 | θ_individu ≥ 1600 |
 
 **Bloom's Level Mapping (ACM CCECC 2023):**
 

@@ -299,7 +299,10 @@ equilibria-monorepo/
 
 ### 3.2 Sandbox Schema (`sandbox`)
 
-**Tables:** `mahasiswa`, `matakuliah`, `dosen`, `frs` (read-only dummy data)
+**Tables:** `student`, `course`, `instructor`, `department`, `classroom`, `section`, `time_slot`, `takes`, `teaches`,
+`prereq`, `advisor` (read-only dummy data)
+
+Specified in a separate file: `docs/sandbox_schema.md`
 
 **Security:**
 - Dedicated DB role `sandbox_executor` dengan hak akses hanya `SELECT` pada skema `sandbox`

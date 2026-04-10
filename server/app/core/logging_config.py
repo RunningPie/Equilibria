@@ -15,6 +15,42 @@ import json
 from typing import Optional
 
 
+def _get_log_file_path(log_dir: Path, prefix: str, max_bytes: int, max_age_days: int = 1) -> Path:
+    """
+    Find an existing log file to reuse if it meets criteria:
+    - File size < max_bytes
+    - File age < max_age_days
+    Otherwise create a new file with current timestamp.
+    """
+    now = datetime.now()
+    current_date = now.date()
+    
+    # Look for existing log files matching pattern: {prefix}_YYYYMMDD_HHMMSS.json
+    pattern = f"{prefix}_*.json"
+    existing_files = sorted(log_dir.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+    
+    for file_path in existing_files:
+        try:
+            # Check file size
+            file_size = file_path.stat().st_size
+            if file_size >= max_bytes:
+                continue
+            
+            # Check file age (parse from filename or use mtime)
+            file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+            file_date = file_mtime.date()
+            age_days = (current_date - file_date).days
+            
+            if age_days < max_age_days:
+                return file_path
+        except (OSError, ValueError):
+            continue
+    
+    # No suitable file found, create new one
+    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    return log_dir / f"{prefix}_{timestamp}.json"
+
+
 class JSONFormatter(logging.Formatter):
     """
     Custom JSON formatter untuk structured logging.
@@ -81,11 +117,14 @@ def setup_logging(
     """
     
     # Buat directories
-    Path(syslog_dir).mkdir(parents=True, exist_ok=True)
-    Path(asslog_dir).mkdir(parents=True, exist_ok=True)
+    syslog_path = Path(syslog_dir)
+    asslog_path = Path(asslog_dir)
+    syslog_path.mkdir(parents=True, exist_ok=True)
+    asslog_path.mkdir(parents=True, exist_ok=True)
     
-    # Generate timestamp untuk log filenames
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Get or create log file paths (reuse if <10MB and <1 day old)
+    syslog_file = _get_log_file_path(syslog_path, "syslog", max_bytes, max_age_days=1)
+    asslog_file = _get_log_file_path(asslog_path, "asslog", max_bytes, max_age_days=1)
     
     # ===========================================
     # SYSTEM LOGGER
@@ -94,7 +133,6 @@ def setup_logging(
     system_logger.setLevel(getattr(logging, log_level.upper()))
     
     # System log file dengan rotation
-    syslog_file = Path(syslog_dir) / f"syslog_{timestamp}.json"
     syslog_handler = RotatingFileHandler(
         syslog_file,
         maxBytes=max_bytes,
@@ -120,7 +158,6 @@ def setup_logging(
     assessment_logger.setLevel(getattr(logging, log_level.upper()))
     
     # Assessment log file dengan rotation
-    asslog_file = Path(asslog_dir) / f"asslog_{timestamp}.json"
     asslog_handler = RotatingFileHandler(
         asslog_file,
         maxBytes=max_bytes,
@@ -130,7 +167,13 @@ def setup_logging(
     asslog_handler.setFormatter(JSONFormatter())
     asslog_handler.setLevel(getattr(logging, log_level.upper()))
     
+    # Console handler untuk assessment logs (so they appear in stdout)
+    ass_console_handler = logging.StreamHandler(sys.stdout)
+    ass_console_handler.setFormatter(JSONFormatter())
+    ass_console_handler.setLevel(getattr(logging, log_level.upper()))
+    
     assessment_logger.addHandler(asslog_handler)
+    assessment_logger.addHandler(ass_console_handler)
     assessment_logger.propagate = False
     
     # Log inisialisasi
