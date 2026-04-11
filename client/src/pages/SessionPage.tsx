@@ -128,7 +128,9 @@ export function SessionPage() {
 
       // Check if peer session was created
       if (result.peer_session_created) {
-        toast.info('You have been enrolled in a peer learning session.', 5000);
+        toast.info('You have been enrolled in a peer learning session.', 5000,
+          { label: 'Go to Peer Hub', onClick: () => navigate('/peer-hub') }
+        );
       }
 
       // Update user theta
@@ -260,7 +262,7 @@ export function SessionPage() {
             {nextResult?.next_chapter_unlocked && (
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
                 <p className="text-purple-800">
-                  Congratulations! You have unlocked the next chapter.
+                  Congratulations! You have unlocked {nextResult?.unlocked_module || 'the next chapter'}.
                 </p>
               </div>
             )}

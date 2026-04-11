@@ -160,6 +160,9 @@ class NextResult(BaseModel):
     peer_session_created: bool = Field(False, description="Apakah peer session berhasil dibuat (hanya jika stagnation terdeteksi)")
     questions_served: int = Field(..., description="Jumlah soal yang sudah di-serve dalam session ini")
     total_questions_available: int = Field(..., description="Total jumlah soal tersedia di modul ini")
+    max_questions_reached: bool = Field(False, description="Apakah maksimum soal tercapai")
+    next_chapter_unlocked: bool = Field(False, description="Apakah chapter berikutnya terbuka")
+    unlocked_module: Optional[str] = Field(None, description="ID modul yang baru terbuka (jika ada)")
     
     model_config = ConfigDict(
         from_attributes=True,

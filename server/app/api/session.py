@@ -60,6 +60,11 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
         )
         modules = result.scalars().all()
         
+        system_logger.info(
+            f"Checking module unlocks: user={user.user_id}, theta={user.theta_individu}, modules_count={len(modules)}",
+            extra={"event_type": "MODULE_UNLOCK_CHECK_START", "user_id": str(user.user_id), "theta": user.theta_individu}
+        )
+        
         for module in modules:
             # Check apakah user sudah memiliki progress untuk modul ini
             progress_result = await db.execute(
@@ -70,10 +75,16 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
             )
             existing_progress = progress_result.scalar_one_or_none()
             
+            system_logger.info(
+                f"Module {module.module_id}: threshold={module.unlock_theta_threshold}, existing_progress={existing_progress is not None}",
+                extra={"event_type": "MODULE_UNLOCK_CHECK", "module_id": module.module_id, "has_progress": existing_progress is not None}
+            )
+            
+            unlocked_now = False
+            
             if not existing_progress:
                 # Cek kondisi unlock
                 if user.theta_individu >= module.unlock_theta_threshold:
-                    # Random pick 1 dari top 5
                     new_progress = UserModuleProgress(
                         user_id=user.user_id,
                         module_id=module.module_id,
@@ -81,11 +92,59 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
                         is_completed=False
                     )
                     db.add(new_progress)
+                    unlocked_now = True
                     
                     system_logger.info(
                         f"Modul unlocked: user={user.user_id}, module={module.module_id}, theta={user.theta_individu}",
                         extra={"event_type": "MODULE_UNLOCK", "module_id": module.module_id}
                     )
+                else:
+                    system_logger.info(
+                        f"Module {module.module_id} not unlocked: theta {user.theta_individu} < threshold {module.unlock_theta_threshold}",
+                        extra={"event_type": "MODULE_UNLOCK_SKIP", "module_id": module.module_id}
+                    )
+            else:
+                # Progress exists but might still be locked - update if threshold met
+                if not existing_progress.is_unlocked and user.theta_individu >= module.unlock_theta_threshold:
+                    existing_progress.is_unlocked = True
+                    db.add(existing_progress)
+                    unlocked_now = True
+                    
+                    system_logger.info(
+                        f"Modul unlocked (existing): user={user.user_id}, module={module.module_id}, theta={user.theta_individu}",
+                        extra={"event_type": "MODULE_UNLOCK", "module_id": module.module_id}
+                    )
+                else:
+                    system_logger.info(
+                        f"Module {module.module_id} skipped: already unlocked or threshold not met",
+                        extra={"event_type": "MODULE_UNLOCK_SKIP_EXISTS", "module_id": module.module_id}
+                    )
+            
+            # Mark previous module as completed when unlocking a new module
+            if unlocked_now and module.order_index > 1:
+                prev_module_result = await db.execute(
+                    select(Module).where(Module.order_index == module.order_index - 1)
+                )
+                prev_module = prev_module_result.scalar_one_or_none()
+                
+                if prev_module:
+                    prev_progress_result = await db.execute(
+                        select(UserModuleProgress).where(
+                            UserModuleProgress.user_id == user.user_id,
+                            UserModuleProgress.module_id == prev_module.module_id
+                        )
+                    )
+                    prev_progress = prev_progress_result.scalar_one_or_none()
+                    
+                    if prev_progress and not prev_progress.is_completed:
+                        prev_progress.is_completed = True
+                        prev_progress.completed_at = datetime.now()
+                        db.add(prev_progress)
+                        
+                        system_logger.info(
+                            f"Module completed: user={user.user_id}, module={prev_module.module_id}",
+                            extra={"event_type": "MODULE_COMPLETED", "module_id": prev_module.module_id}
+                        )
         
         await db.commit()
         
@@ -833,6 +892,73 @@ async def get_next_question_endpoint(
         # Check dan unlock modul baru
         await check_and_unlock_modules(current_user, db)
         
+        # Check if next module was just unlocked - if so, end session
+        current_module_result = await db.execute(
+            select(Module).where(Module.module_id == session.module_id)
+        )
+        current_module = current_module_result.scalar_one_or_none()
+        
+        next_module_unlocked = False
+        next_module = None
+        if current_module and current_module.module_id != "CH03":
+            next_module_result = await db.execute(
+                select(Module).where(Module.order_index == current_module.order_index + 1)
+            )
+            next_module = next_module_result.scalar_one_or_none()
+            if next_module:
+                next_progress_result = await db.execute(
+                    select(UserModuleProgress).where(
+                        UserModuleProgress.user_id == current_user.user_id,
+                        UserModuleProgress.module_id == next_module.module_id
+                    )
+                )
+                next_progress = next_progress_result.scalar_one_or_none()
+                if next_progress and next_progress.is_unlocked:
+                    next_module_unlocked = True
+                    
+        if next_module_unlocked:
+            # End session as user has unlocked the next chapter
+            session.status = "COMPLETED"
+            session.ended_at = datetime.utcnow()
+            await db.commit()
+            
+            system_logger.info(
+                f"Session ended due to chapter unlock: user={current_user.user_id}, "
+                f"session={session_id}, module={session.module_id}, "
+                f"next_module={next_module.module_id}",
+                extra={
+                    "event_type": "SESSION_END_CHAPTER_UNLOCK",
+                    "session_id": session_id,
+                    "module_id": session.module_id,
+                    "next_module_id": next_module.module_id
+                }
+            )
+            
+            return jsend_success(
+                code=HTTP_200_OK,
+                message=f"Congratulations! You have unlocked {next_module.module_id}. Session completed.",
+                data={
+                    "session_id": session_id,
+                    "question_id": None,
+                    "module_id": session.module_id,
+                    "content": None,
+                    "current_difficulty": None,
+                    "attempt_count": 0,
+                    "max_attempts": 3,
+                    "theta_before": theta_before,
+                    "theta_after": new_theta,
+                    "previous_question_id": question.question_id,
+                    "theta_change": new_theta - theta_before,
+                    "stagnation_detected": False,
+                    "peer_session_created": False,
+                    "questions_served": len(session.question_ids_served or []),
+                    "total_questions_available": 0,
+                    "max_questions_reached": False,
+                    "next_chapter_unlocked": True,
+                    "unlocked_module": next_module.module_id
+                }
+            )
+        
         # Stagnation Detection and Peer Matching - called after each /next endpoint
         stagnation_detected = False
         peer_session_created = False
@@ -855,26 +981,22 @@ async def get_next_question_endpoint(
             # Step 2: Fallback trigger (secondary) - hanya jika variance tidak trigger
             # dan hanya untuk Grup A
             if not stagnation_detected and current_user.group_assignment == 'A':
-                # Query 8 final attempts terakhir di module ini (ordered by attempted_at desc)
+                # Query 8 final attempts terakhir di module ini (via join dengan AssessmentSession)
                 recent_logs_result = await db.execute(
                     select(AssessmentLog)
+                    .join(AssessmentSession, AssessmentLog.session_id == AssessmentSession.session_id)
                     .where(
                         AssessmentLog.user_id == current_user.user_id,
-                        AssessmentLog.module_id == session.module_id,
+                        AssessmentSession.module_id == session.module_id,
                         AssessmentLog.is_final_attempt == True
                     )
-                    .order_by(AssessmentLog.attempted_at.desc())
+                    .order_by(AssessmentLog.timestamp.desc())
                     .limit(8)
                 )
                 recent_logs = recent_logs_result.scalars().all()
                 wrong_count = sum(1 for log in recent_logs if not log.is_correct)
                 
-                # Query next module dan check unlock status
-                current_module_result = await db.execute(
-                    select(Module).where(Module.module_id == session.module_id)
-                )
-                current_module = current_module_result.scalar_one_or_none()
-                
+                # Check next module unlock status (current_module already defined above)
                 is_next_unlocked = True  # Default ke True (tidak trigger fallback)
                 if current_module and current_module.module_id != "CH03":
                     next_module_result = await db.execute(

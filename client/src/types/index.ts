@@ -150,6 +150,7 @@ export interface NextResult {
   total_questions_available: number;
   max_questions_reached?: boolean;
   next_chapter_unlocked?: boolean;
+  unlocked_module?: string;
 }
 
 // ============================================

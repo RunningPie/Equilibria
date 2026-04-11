@@ -53,11 +53,11 @@ async def select_next_question(
     # Sort berdasarkan distance (terkecil pertama)
     questions_with_distance.sort(key=lambda x: x[1])
     
-    # Ambil top 5 dengan distance terkecil
-    top_5_questions = [item[0] for item in questions_with_distance[:5]]
+    # Ambil top 2 dengan distance terkecil
+    top_2_questions = [item[0] for item in questions_with_distance[:2]]
     
-    # Random pick 1 dari top 5
-    selected_question = random.choice(top_5_questions)
+    # Random pick 1 dari top 2
+    selected_question = random.choice(top_2_questions)
     
     return selected_question
 
@@ -99,10 +99,10 @@ async def select_pretest_question(
     # Gunakan algoritma distance yang sama
     questions_sorted = sorted(questions, key=lambda x: abs(x.current_difficulty - target_difficulty))
     
-    # Ambil top 5 paling dekat, lalu random 1
-    top_5 = questions_sorted[:5]
-    if not top_5:
+    # Ambil top 2 paling dekat, lalu random 1
+    top_2_questions = questions_sorted[:2]
+    if not top_2_questions:
         return None
         
-    selected_question = random.choice(top_5)
+    selected_question = random.choice(top_2_questions)
     return selected_question

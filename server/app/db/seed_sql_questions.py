@@ -355,7 +355,7 @@ QUESTIONS_DATA = [
         "question_id": "CH02-Q005",
         "module_id": "CH02",
         "content": "Biasanya semester berapa sih yang beban matakuliahnya paling enteng? Coba cari SKS paling kecil di tiap semester.",
-        "target_query": "SELECT semester, MIN(sks) AS min_sks FROM course GROUP BY semester;",
+        "target_query": "SELECT semester, MIN(credits) FROM course JOIN section ON course.course_id = section.course_id GROUP BY semester;",
         "initial_difficulty": 1260.0,
         "current_difficulty": 1260.0,
         "topic_tags": ["MIN", "GROUP BY"],
@@ -544,7 +544,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH02-Q024",
         "module_id": "CH02",
-        "content": "Hitung berapa banyak mahasiswa yang beda-beda di setiap kelas (kode mk, seksi, semester, dan tahun).",
+        "content": "Hitung berapa banyak mahasiswa yang unik di setiap kelas (kode mk, kelas, semester, dan tahun).",
         "target_query": "SELECT course_id, sec_id, semester, year, COUNT(DISTINCT ID) FROM takes GROUP BY course_id, sec_id, semester, year;",
         "initial_difficulty": 1545.0,
         "current_difficulty": 1545.0,
