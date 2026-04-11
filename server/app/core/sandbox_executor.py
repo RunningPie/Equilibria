@@ -9,6 +9,7 @@ Fix (2026-03-13):
 '''
 
 import asyncio
+import re
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy import text
 from app.core.logging_config import get_loggers
@@ -18,6 +19,70 @@ from datetime import datetime, date
 import uuid
 
 logger = get_loggers()[0]
+
+
+def parse_sqlalchemy_error(error_msg: str) -> str:
+    """
+    Parse SQLAlchemy error messages to extract user-friendly error text.
+    
+    SQLAlchemy errors typically have this format:
+    (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.X'>: USER_FRIENDLY_MSG [SQL: ...]
+    
+    We want to extract the USER_FRIENDLY_MSG part.
+    
+    Examples:
+    - "column 'x' does not exist"
+    - "unterminated quoted identifier at or near 'y'"
+    - "relation 'z' does not exist"
+    - "syntax error at or near 'w'"
+    """
+    if not error_msg:
+        return "Query execution failed"
+    
+    # Pattern 1: Extract between ">: " and " [SQL:" 
+    # This captures: ...ProgrammingError) <class 'X.Y'>: EXTRACT_THIS [SQL: ...
+    pattern1 = r'>:\s*(.+?)\s*\[SQL:'
+    match = re.search(pattern1, error_msg)
+    if match:
+        return match.group(1).strip()
+    
+    # Pattern 2: Extract between ") " and " [SQL:" (for non-class exception format)
+    pattern2 = r'\)\s+([^.]+?)\s*\[SQL:'
+    match = re.search(pattern2, error_msg)
+    if match:
+        return match.group(1).strip()
+    
+    # Pattern 3: Extract PostgreSQL-style DETAIL or HINT if present
+    detail_match = re.search(r'DETAIL:\s*(.+?)(?:\n|$)', error_msg)
+    if detail_match:
+        return detail_match.group(1).strip()
+    
+    # Pattern 4: Common PostgreSQL error patterns at start
+    pg_patterns = [
+        r"column\s+.+?\s+does not exist",
+        r"relation\s+.+?\s+does not exist",
+        r"syntax error at or near .+",
+        r"unterminated quoted identifier.+",
+        r"operator does not exist:.+",
+        r"function .+? does not exist",
+        r"table .+? does not exist",
+        r"database .+? does not exist",
+        r"permission denied for .+",
+    ]
+    for pattern in pg_patterns:
+        match = re.search(pattern, error_msg, re.IGNORECASE)
+        if match:
+            return match.group(0).strip()
+    
+    # Fallback: if message is too long, truncate and clean
+    if len(error_msg) > 200:
+        # Remove common SQLAlchemy boilerplate prefixes
+        cleaned = re.sub(r'^\([^)]+\)\s*', '', error_msg)  # Remove (sqlalchemy...) prefix
+        cleaned = re.sub(r"<class '[^']+'>\s*", '', cleaned)  # Remove <class '...'>
+        cleaned = re.sub(r'\[SQL:.+$', '', cleaned, flags=re.DOTALL)  # Remove [SQL:... onwards
+        return cleaned.strip()[:200]
+    
+    return error_msg
 
 
 def serialize_value(value):
@@ -151,10 +216,10 @@ async def execute_query_in_sandbox(
         logger.error(f"Query timeout setelah {timeout_ms}ms: {clean_query!r}")
         raise SandboxExecutionError(f"Query execution timeout ({timeout_ms}ms)")
     except Exception as e:
-        # Ensure error message is a simple string, never contains asyncpg types
-        error_msg = str(e)
-        logger.error(f"Sandbox execution error: {error_msg}")
-        raise SandboxExecutionError(f"Query execution failed: {error_msg}")
+        # Parse SQLAlchemy error to get user-friendly message
+        error_msg = parse_sqlalchemy_error(str(e))
+        logger.error(f"Sandbox execution error: {str(e)}")  # Log full error for debugging
+        raise SandboxExecutionError(error_msg)
 
 
 async def compare_query_results(
