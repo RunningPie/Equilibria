@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from typing import List
 
 from starlette.status import (
@@ -53,9 +53,12 @@ async def get_inbox(
     Return semua status: PENDING_REVIEW, WAITING_CONFIRMATION, COMPLETED.
     """
     try:
+        # Join with User to exclude sessions where requester is soft-deleted
         result = await db.execute(
             select(PeerSession)
+            .join(User, PeerSession.requester_id == User.user_id)
             .where(PeerSession.reviewer_id == current_user.user_id)
+            .where(User.is_deleted == False)
             .order_by(PeerSession.created_at.desc())
         )
         peer_sessions = result.scalars().all()
@@ -270,9 +273,12 @@ async def get_requests(
     Tampilkan semua status: PENDING_REVIEW, WAITING_CONFIRMATION, COMPLETED.
     """
     try:
+        # Join with User to exclude sessions where reviewer is soft-deleted
         result = await db.execute(
             select(PeerSession)
+            .join(User, PeerSession.reviewer_id == User.user_id)
             .where(PeerSession.requester_id == current_user.user_id)
+            .where(User.is_deleted == False)
             .order_by(PeerSession.created_at.desc())
         )
         peer_sessions = result.scalars().all()
@@ -360,16 +366,21 @@ async def rate_feedback(
         final_score = peer_session.calculate_final_score()
         peer_session.final_score = final_score
 
-        # Ambil reviewer untuk Social Elo update
+        # Ambil reviewer untuk Social Elo update (exclude soft-deleted)
         reviewer_result = await db.execute(
-            select(User).where(User.user_id == peer_session.reviewer_id)
+            select(User).where(
+                and_(
+                    User.user_id == peer_session.reviewer_id,
+                    User.is_deleted == False
+                )
+            )
         )
         reviewer = reviewer_result.scalar_one_or_none()
 
         if not reviewer:
             return jsend_fail(
                 code=HTTP_404_NOT_FOUND,
-                message="Reviewer not found"
+                message="Reviewer not found or account is deactivated"
             )
 
         # Update Social Elo

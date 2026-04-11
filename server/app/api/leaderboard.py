@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.status import HTTP_200_OK
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, and_
 from typing import Optional
 
 from app.db.models import User
@@ -75,15 +75,19 @@ async def get_leaderboard(
     Display names diobfuscate (e.g., "D***a") kecuali untuk entry user saat ini.
     """
     
-    # Hitung total user
-    total_result = await db.execute(select(func.count()).select_from(User))
+    # Hitung total user (exclude soft-deleted)
+    total_result = await db.execute(
+        select(func.count()).select_from(User).where(User.is_deleted == False)
+    )
     total = total_result.scalar()
     
     # Ambil user diurutkan theta_display descending dengan pagination
+    # Exclude soft-deleted users
     # Catatan: theta_display adalah computed property, jadi pakai rumus langsung
     # theta_display = (0.8 * theta_individu) + (0.2 * theta_social)
     stmt = (
         select(User)
+        .where(User.is_deleted == False)
         .order_by(desc((0.8 * User.theta_individu) + (0.2 * User.theta_social)))
         .offset(offset)
         .limit(limit)

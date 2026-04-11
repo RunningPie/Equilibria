@@ -118,7 +118,9 @@ async def get_current_optional_user(
         if user_id is None:
             return None
         
-        result = await db.execute(select(User).where(User.user_id == user_id))
+        result = await db.execute(
+            select(User).where(User.user_id == user_id, User.is_deleted == False)
+        )
         user = result.scalars().first()
         
         return user

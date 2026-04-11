@@ -82,11 +82,7 @@ export function ModuleMaterialsPage() {
     <>
         {/* Header Section */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{moduleData.title}</h1>
-              <p className="text-sm text-gray-500 mt-1">Module ID: {moduleData.moduleId}</p>
-            </div>
+          <div className="flex items-center gap-4 mb-4">
             <button
               onClick={() => navigate('/dashboard')}
               className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -95,6 +91,10 @@ export function ModuleMaterialsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{moduleData.title}</h1>
+              <p className="text-sm text-gray-500 mt-1">Module ID: {moduleData.moduleId}</p>
+            </div>
           </div>
 
           <p className="text-gray-700 leading-relaxed">{moduleData.description}</p>
