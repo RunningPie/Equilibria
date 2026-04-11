@@ -5,6 +5,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { ReferenceImage } from '../components/ReferenceImage';
+import { QueryResultDisplay } from '../components/QueryResultDisplay';
 import { pretestService } from '../services/pretest';
 import { extract422ErrorMessage } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -258,6 +259,20 @@ export function PretestPage() {
                   Score: {result.total_correct} / {result.total_questions}
                 </p>
               </div>
+            )}
+
+            {/* Query Results Display */}
+            {result?.user_query_result && (
+              <QueryResultDisplay
+                result={result.user_query_result}
+                errorMessage={result.error_message}
+              />
+            )}
+            {result?.error_message && !result.user_query_result && (
+              <QueryResultDisplay
+                result={{ rows: [], row_count: 0 }}
+                errorMessage={result.error_message}
+              />
             )}
 
             {result && !result.has_completed_pretest ? (

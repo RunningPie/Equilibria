@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { toast } from '../hooks/toastState';
 import { Modal } from '../components/Modal';
 import { ReferenceImage } from '../components/ReferenceImage';
+import { QueryResultDisplay } from '../components/QueryResultDisplay';
 import type { Question, SubmitResult, NextResult } from '../types';
 
 /**
@@ -486,6 +487,20 @@ export function SessionPage() {
                   </p>
                 )}
               </div>
+            )}
+
+            {/* Query Results Display */}
+            {submitResult?.user_query_result && (
+              <QueryResultDisplay
+                result={submitResult.user_query_result}
+                errorMessage={submitResult.error_message}
+              />
+            )}
+            {submitResult?.error_message && !submitResult.user_query_result && (
+              <QueryResultDisplay
+                result={{ rows: [], row_count: 0 }}
+                errorMessage={submitResult.error_message}
+              />
             )}
 
             {/* Action Buttons */}

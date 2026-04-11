@@ -71,11 +71,22 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     // Don't redirect on 401 for login endpoint - let the component handle it
     const isLoginRequest = error.config?.url?.includes('/auth/login');
-    
+
     if (error.response?.status === 401 && !isLoginRequest) {
-      // Unauthorized - clear token and redirect to login
+      // Check if user was logged in before getting 401
+      const wasLoggedIn = localStorage.getItem('auth-storage') !== null;
+
+      // Unauthorized - clear token first
       localStorage.removeItem('auth-storage');
-      window.location.href = '/login';
+
+      // Show warning toast if user was previously logged in
+      if (wasLoggedIn) {
+        // Store message in sessionStorage to survive page reload
+        sessionStorage.setItem('auth_expired_message', 'Your session has expired due to inactivity. Please log in again to continue.');
+        window.location.href = '/login';
+      } else {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

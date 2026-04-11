@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { authService } from '../services/auth';
 import { useAuthStore } from '../store/authStore';
+import { toast } from '../hooks/toastState';
 
 /**
  * Login Page
@@ -25,6 +26,15 @@ export function Login() {
 
   // Loading state
   const [isLoading, setIsLoading] = useState(false);
+
+  // Check for stored auth expired message on mount
+  useEffect(() => {
+    const expiredMessage = sessionStorage.getItem('auth_expired_message');
+    if (expiredMessage) {
+      toast.warning(expiredMessage, 8000);
+      sessionStorage.removeItem('auth_expired_message');
+    }
+  }, []);
 
   // Validation functions
   const validateNim = (value: string): boolean => {

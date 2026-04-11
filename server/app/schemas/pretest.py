@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
 
@@ -48,6 +48,24 @@ class PreTestQuestion(BaseModel):
         }
     )
     
+class QueryResultData(BaseModel):
+    """Hasil eksekusi query user"""
+    rows: List[Dict[str, Any]] = Field(..., description="Baris hasil query")
+    row_count: int = Field(..., description="Jumlah baris hasil query")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "rows": [
+                    {"id": 1, "name": "Alice"},
+                    {"id": 2, "name": "Bob"}
+                ],
+                "row_count": 2
+            }
+        }
+    )
+
+
 class PreTestResult(BaseModel):
     session_id: UUID = Field(..., example="123e4567-e89b-12d3-a456-426614174000")
     theta_initial: Optional[float] = Field(None, ge=500, le=1500)
@@ -56,7 +74,9 @@ class PreTestResult(BaseModel):
     total_questions: int = Field(default=5)
     redirect: Optional[str] = Field(None, example="dashboard")
     is_correct: bool = Field(..., example=True, description="Whether the submitted answer was correct")
-    
+    user_query_result: Optional[QueryResultData] = Field(None, description="Hasil query user (rows, row_count)")
+    error_message: Optional[str] = Field(None, description="Error message jika query execution gagal")
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -65,7 +85,15 @@ class PreTestResult(BaseModel):
                 "total_correct": 0,
                 "total_questions": 5,
                 "redirect": "dashboard",
-                "is_correct": True
+                "is_correct": True,
+                "user_query_result": {
+                    "rows": [
+                        {"id": 1, "name": "Alice"},
+                        {"id": 2, "name": "Bob"}
+                    ],
+                    "row_count": 2
+                },
+                "error_message": None
             }
         }
     )

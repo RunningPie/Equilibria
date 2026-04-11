@@ -201,14 +201,21 @@ async def submit_pretest_answer(
                 message = "Question not found"
             )
         
+        # Eksekusi sandbox dan capture hasil
+        user_query_result = None
+        error_message = None
         try:
-            is_correct = await compare_query_results(
+            comparison_result = await compare_query_results(
                 user_query=payload.user_query,
                 target_query=question.target_query
             )
+            is_correct = comparison_result["is_correct"]
+            user_query_result = comparison_result["user_result"]
+            error_message = comparison_result["error"]
         except SandboxExecutionError as e:
             logger.warning(f"Sandbox execution failed: {e}")
             is_correct = False
+            error_message = str(e)
         
               
         current_answers = pretest_session.answers or {}
@@ -257,6 +264,14 @@ async def submit_pretest_answer(
                     )
                 )
             
+            # Build query result data if available
+            query_result_data = None
+            if user_query_result:
+                query_result_data = QueryResultData(
+                    rows=user_query_result["rows"],
+                    row_count=user_query_result["row_count"]
+                )
+
             message = "Pretest Completed. Init Theta Calculated"
             result_data = PreTestResult(
                 session_id = pretest_session.session_id,
@@ -265,13 +280,24 @@ async def submit_pretest_answer(
                 total_correct=correct_count,
                 total_questions=5,
                 redirect="dashboard",
-                is_correct=is_correct
+                is_correct=is_correct,
+                user_query_result=query_result_data,
+                error_message=error_message
             )
             
         else:
             # belum selesai jadi increm indx aja
             pretest_session.current_question_index += 1
             message = "Answer submitted. Next question"
+
+            # Build query result data if available
+            query_result_data = None
+            if user_query_result:
+                query_result_data = QueryResultData(
+                    rows=user_query_result["rows"],
+                    row_count=user_query_result["row_count"]
+                )
+
             result_data = PreTestResult(
                 session_id = pretest_session.session_id,
                 theta_initial=None,
@@ -279,7 +305,9 @@ async def submit_pretest_answer(
                 total_questions=5,
                 has_completed_pretest=False,
                 redirect=None,
-                is_correct=is_correct
+                is_correct=is_correct,
+                user_query_result=query_result_data,
+                error_message=error_message
             )
         
         await db.commit()

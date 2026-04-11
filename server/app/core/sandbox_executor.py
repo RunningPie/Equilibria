@@ -117,12 +117,20 @@ async def execute_query_in_sandbox(
 async def compare_query_results(
     user_query: str,
     target_query: str,
-) -> bool:
+) -> dict:
     """
     Bandingkan hasil query user dengan target query secara order-insensitive.
 
-    Mengembalikan False (bukan raise) untuk semua kasus kegagalan sehingga
-    pemanggil (submit handler) bisa tetap melanjutkan update sesi utama.
+    Returns:
+        dict dengan format:
+        {
+            "is_correct": bool,
+            "user_result": dict | None,  # Hasil query user (rows, row_count)
+            "error": str | None           # Error message jika execution gagal
+        }
+
+    Mengembalikan result dengan is_correct=False (bukan raise) untuk semua kasus
+    kegagalan sehingga pemanggil (submit handler) bisa tetap melanjutkan update sesi utama.
     """
     try:
         user_result = await execute_query_in_sandbox(user_query)
@@ -130,16 +138,34 @@ async def compare_query_results(
 
         # Quick-fail: jumlah baris berbeda → pasti salah.
         if user_result["row_count"] != target_result["row_count"]:
-            return False
+            return {
+                "is_correct": False,
+                "user_result": user_result,
+                "error": None
+            }
 
         # Order-insensitive comparison menggunakan set of frozensets.
         user_rows = {frozenset(row.items()) for row in user_result["rows"]}
         target_rows = {frozenset(row.items()) for row in target_result["rows"]}
 
-        return user_rows == target_rows
+        is_correct = user_rows == target_rows
 
-    except SandboxExecutionError:
-        return False
+        return {
+            "is_correct": is_correct,
+            "user_result": user_result,
+            "error": None
+        }
+
+    except SandboxExecutionError as e:
+        return {
+            "is_correct": False,
+            "user_result": None,
+            "error": str(e)
+        }
     except Exception as e:
         logger.error(f"Comparison error: {e}")
-        return False
+        return {
+            "is_correct": False,
+            "user_result": None,
+            "error": "Query execution failed"
+        }

@@ -101,12 +101,30 @@ class SessionStatus(BaseModel):
     )
 
 
+class QueryResultData(BaseModel):
+    """Hasil eksekusi query user"""
+    rows: list[dict] = Field(..., description="Baris hasil query")
+    row_count: int = Field(..., description="Jumlah baris hasil query")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "rows": [
+                    {"id": 1, "name": "Alice"},
+                    {"id": 2, "name": "Bob"}
+                ],
+                "row_count": 2
+            }
+        }
+    )
+
+
 class SubmitRequest(BaseModel):
     """Request untuk POST /session/{id}/submit"""
     question_id: str = Field(..., description="ID soal yang dijawab")
     user_query: str = Field(..., description="Query SQL yang disubmit user")
     execution_time_ms: int = Field(..., description="Waktu eksekusi dalam milidetik")
-    
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -127,7 +145,9 @@ class SubmitResult(BaseModel):
     theta_before: Optional[float] = Field(None, description="Theta sebelum update (hanya jika final)")
     theta_after: Optional[float] = Field(None, description="Theta setelah update (hanya jika final)")
     next_question_available: bool = Field(..., description="Apakah masih ada soal berikutnya")
-    
+    user_query_result: Optional[QueryResultData] = Field(None, description="Hasil query user (rows, row_count)")
+    error_message: Optional[str] = Field(None, description="Error message jika query execution gagal")
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
@@ -137,7 +157,15 @@ class SubmitResult(BaseModel):
                 "feedback": "Jawaban benar! Query Anda berhasil menampilkan data yang diminta.",
                 "theta_before": 1300.0,
                 "theta_after": 1325.0,
-                "next_question_available": True
+                "next_question_available": True,
+                "user_query_result": {
+                    "rows": [
+                        {"id": 1, "name": "Alice"},
+                        {"id": 2, "name": "Bob"}
+                    ],
+                    "row_count": 2
+                },
+                "error_message": None
             }
         }
     )

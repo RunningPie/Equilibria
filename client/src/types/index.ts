@@ -114,6 +114,14 @@ export interface SessionStatus {
 }
 
 // ============================================
+// Query Result Type
+// ============================================
+export interface QueryResult {
+  rows: Record<string, unknown>[];
+  row_count: number;
+}
+
+// ============================================
 // Submit / Next Types
 // ============================================
 export interface SubmitRequest {
@@ -130,6 +138,8 @@ export interface SubmitResult {
   theta_before: number | null;
   theta_after: number | null;
   next_question_available: boolean;
+  user_query_result?: QueryResult;
+  error_message?: string;
 }
 
 export interface NextResult {
@@ -225,6 +235,8 @@ export interface PreTestResult {
   total_questions: number;
   redirect: string | null;
   is_correct: boolean;
+  user_query_result?: QueryResult;
+  error_message?: string;
 }
 
 export interface PreTestAnswerSubmit {

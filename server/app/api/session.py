@@ -663,11 +663,16 @@ async def submit_answer(
             )
         
         # Eksekusi sandbox
+        user_query_result = None
+        error_message = None
         try:
-            is_correct = await compare_query_results(
-                submit_data.user_query, 
+            comparison_result = await compare_query_results(
+                submit_data.user_query,
                 question.target_query
             )
+            is_correct = comparison_result["is_correct"]
+            user_query_result = comparison_result["user_result"]
+            error_message = comparison_result["error"]
         except Exception as sandbox_error:
             system_logger.error(
                 f"Sandbox execution error: {str(sandbox_error)}",
@@ -727,6 +732,15 @@ async def submit_answer(
         if not is_final:
             feedback += f" (Attempt {attempt_number}/3)"
         
+        # Build query result data if available
+        query_result_data = None
+        if user_query_result:
+            from app.schemas.session import QueryResultData
+            query_result_data = QueryResultData(
+                rows=user_query_result["rows"],
+                row_count=user_query_result["row_count"]
+            )
+
         submit_result = SubmitResult(
             is_correct=is_correct,
             is_final_attempt=is_final,
@@ -734,7 +748,9 @@ async def submit_answer(
             feedback=feedback,
             theta_before=None,  # Akan diisi di /next endpoint
             theta_after=None,   # Akan diisi di /next endpoint
-            next_question_available=next_question_available
+            next_question_available=next_question_available,
+            user_query_result=query_result_data,
+            error_message=error_message
         )
         
         # Log assessment event using helper function

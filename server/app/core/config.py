@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     SANDBOX_DB_ROLE: str = "sandbox_executor"
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
