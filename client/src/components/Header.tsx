@@ -27,6 +27,29 @@ export function ProfileAvatar({ seed, size = 40, className = '' }: ProfileAvatar
 }
 
 /**
+ * AdminButton Component
+ * Shows console icon for admin users only
+ */
+function AdminButton() {
+  const navigate = useNavigate();
+  const user = useUser();
+
+  if (!user?.is_admin) return null;
+
+  return (
+    <button
+      onClick={() => navigate('/admin')}
+      className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors cursor-pointer"
+      title="Admin Console"
+    >
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    </button>
+  );
+}
+
+/**
  * UserProfileSection Component
  * Shows username + avatar, clickable to navigate to profile page
  */
@@ -138,6 +161,9 @@ export function Header() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zm0 0H4a2 2 0 002 2h1m11-2h3a2 2 0 01-2 2h-1" />
               </svg>
             </button>
+
+            {/* Admin Console - Only for admins */}
+            <AdminButton />
 
             <div className="w-px h-6 bg-gray-300 mx-1" />
 

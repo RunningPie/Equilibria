@@ -103,7 +103,7 @@ class UserListResponse(BaseModel):
     users: List[AdminUserResponse]
     total: int
     page: int = Field(..., ge=1, example=1)
-    page_size: int = Field(..., ge=1, le=100, example=20)
+    page_size: int = Field(..., ge=1, le=1000, example=20)
     
     model_config = ConfigDict(
         json_schema_extra={

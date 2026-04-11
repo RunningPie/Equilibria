@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Header } from '../components/Header';
 import { leaderboardService } from '../services/leaderboard';
 import type { LeaderboardEntry } from '../types';
 
@@ -79,9 +78,7 @@ export function LeaderboardPage() {
   const currentPage = Math.floor(offset / limit) + 1;
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Header />
-      <main className="max-w-4xl mx-auto px-4 py-8">
+    <>
         <div className="bg-white rounded-lg shadow-md">
           {/* Header */}
           <div className="p-6 border-b border-gray-200">
@@ -209,8 +206,7 @@ export function LeaderboardPage() {
             )}
           </div>
         </div>
-      </main>
-    </div>
+    </>
   );
 }
 

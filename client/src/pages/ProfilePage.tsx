@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header, ProfileAvatar } from '../components/Header';
+import { ProfileAvatar } from '../components/Header';
 import { useUser, useAuthStore } from '../store/authStore';
 import { profileService } from '../services/profile';
 import { authService } from '../services/auth';
@@ -85,20 +85,17 @@ export function ProfilePage() {
   const thetaPercentage = Math.min(100, Math.max(0, (thetaDisplay / 2000) * 100));
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Header />
-
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {/* Back button */}
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Dashboard
-        </button>
+    <>
+      {/* Back button */}
+      <button
+        onClick={() => navigate('/dashboard')}
+        className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Dashboard
+      </button>
 
         {message && (
           <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
@@ -258,15 +255,14 @@ export function ProfilePage() {
           )}
         </div>
 
-        {/* Logout Button */}
-        <button
-          onClick={handleLogout}
-          className="w-full bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 transition-colors"
-        >
-          Logout
-        </button>
-      </main>
-    </div>
+      {/* Logout Button */}
+      <button
+        onClick={handleLogout}
+        className="w-full bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 transition-colors"
+      >
+        Logout
+      </button>
+    </>
   );
 }
 

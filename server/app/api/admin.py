@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 
 from app.db.session import get_db
 from app.db.models import User
@@ -70,34 +71,51 @@ async def get_current_admin(
     "/users",
     response_model=JSendResponse[UserListResponse],
     summary="List all users",
-    description="Get paginated list of all users. Admin only."
+    description="Get paginated list of all users with optional sorting. Admin only."
 )
 async def list_users(
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    page_size: int = Query(20, ge=1, le=1000, description="Items per page (max 1000)"),
+    sortby: str = Query(None, description="Sort by column: 'nim' or 'name' (full_name)"),
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    List all users with pagination (admin only)
+    List all users with pagination and optional sorting (admin only)
     """
     try:
-        # Get total count
-        count_result = await db.execute(select(User))
-        total = len(count_result.scalars().all())
+        # Validate sortby parameter
+        order_by = None
+        if sortby:
+            sortby_lower = sortby.lower()
+            if sortby_lower not in ('nim', 'name'):
+                return jsend_fail(
+                    code=status.HTTP_400_BAD_REQUEST,
+                    message="Invalid sortby value. Must be 'nim' or 'name'"
+                )
+            order_by = User.nim if sortby_lower == 'nim' else User.full_name
+        
+        # Get total count using func.count for efficiency
+        count_result = await db.execute(select(func.count()).select_from(User))
+        total = count_result.scalar()
+        
+        # Build query
+        query = select(User)
+        if order_by is not None:
+            query = query.order_by(order_by.asc())
         
         # Get paginated users
         offset = (page - 1) * page_size
         result = await db.execute(
-            select(User)
+            query
             .offset(offset)
             .limit(page_size)
         )
         users = result.scalars().all()
         
         logger.info(
-            f"Admin {admin.user_id} listed users: page={page}, page_size={page_size}",
-            extra={"event_type": "ADMIN_LIST_USERS", "admin_id": admin.user_id, "page": page, "page_size": page_size}
+            f"Admin {admin.user_id} listed users: page={page}, page_size={page_size}, sortby={sortby}",
+            extra={"event_type": "ADMIN_LIST_USERS", "admin_id": admin.user_id, "page": page, "page_size": page_size, "sortby": sortby}
         )
         
         return jsend_success(

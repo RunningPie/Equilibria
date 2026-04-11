@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Header } from '../components/Header';
 import { Modal } from '../components/Modal';
 import { collaborationService } from '../services/collaboration';
 import type { PeerSessionInboxItem, PeerSessionRequest, PeerSessionDetail } from '../types';
@@ -341,9 +340,7 @@ export function PeerHubPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Header />
-      <main className="max-w-4xl mx-auto px-4 py-8">
+    <>
         <div className="bg-white rounded-lg shadow-md p-6">
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
@@ -485,7 +482,6 @@ export function PeerHubPage() {
             </div>
           )}
         </div>
-      </main>
 
       <ReviewModal
         sessionId={reviewModalSession}
@@ -505,7 +501,7 @@ export function PeerHubPage() {
         sessionId={viewDetailSessionId}
         onClose={() => setViewDetailSessionId(null)}
       />
-    </div>
+    </>
   );
 }
 

@@ -28,6 +28,9 @@ export interface User {
   has_completed_pretest: boolean;
   group_assignment: 'A' | 'B';
   stagnation_ever_detected: boolean;
+  is_admin: boolean;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
   created_at: string;
 }
 
@@ -299,4 +302,46 @@ export interface LeaderboardResponse {
   total: number;
   limit: number;
   offset: number;
+}
+
+// ============================================
+// Admin Types
+// ============================================
+export interface AdminUserCreateRequest {
+  nim: string;
+  full_name: string;
+  password: string;
+  group_assignment?: 'A' | 'B';
+  is_admin?: boolean;
+}
+
+export interface AdminUserUpdateRequest {
+  full_name?: string;
+  password?: string;
+  group_assignment?: 'A' | 'B';
+  status?: string;
+  is_admin?: boolean;
+  theta_individu?: number;
+  theta_social?: number;
+}
+
+export interface UserListResponse {
+  users: User[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface LogEntry {
+  timestamp?: string;
+  level?: string;
+  message: string;
+  extra?: Record<string, unknown>;
+}
+
+export interface LogsResponse {
+  date?: string;
+  files: string[];
+  logs: LogEntry[];
+  total_entries: number;
 }

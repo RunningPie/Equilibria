@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Header } from '../components/Header';
 import { getModuleMaterials, type ModuleMaterials, type PDFMaterial } from '../data/moduleMaterials';
 import { sessionService } from '../services/session';
 
@@ -80,10 +79,7 @@ export function ModuleMaterialsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Header />
-
-      <main className="max-w-5xl mx-auto px-4 py-8">
+    <>
         {/* Header Section */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -239,8 +235,7 @@ export function ModuleMaterialsPage() {
             )}
           </button>
         </div>
-      </main>
-    </div>
+    </>
   );
 }
 

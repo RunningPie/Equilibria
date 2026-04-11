@@ -6,7 +6,6 @@ import { profileService } from '../services/profile';
 import { authService } from '../services/auth';
 import { modulesService, type ModuleWithStatus } from '../services/modules';
 import { leaderboardService } from '../services/leaderboard';
-import { Header } from '../components/Header';
 import type { ProfileStats, ActiveSessionCheck, User, LeaderboardEntry } from '../types';
 import { calculateThetaDisplay } from '../types';
 
@@ -89,16 +88,12 @@ export function Dashboard() {
   const thetaPercentage = Math.min(100, Math.max(0, (thetaDisplay / 2000) * 100));
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Header />
-
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
+    <>
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
 
         {/* Theta Stats Card */}
         <section className="mb-8">
@@ -329,8 +324,7 @@ export function Dashboard() {
             )}
           </div>
         </section>
-      </main>
-    </div>
+    </>
   );
 }
 

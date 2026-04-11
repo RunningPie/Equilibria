@@ -3,6 +3,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute';
 import { PretestGate } from '../components/PretestGate';
 import { AuthGuard } from '../components/AuthGuard';
 import { ToastContainer } from '../components/Toast';
+import { Layout } from '../components/Layout';
 
 // Pages
 import Login from '../pages/Login';
@@ -13,6 +14,7 @@ import ProfilePage from '../pages/ProfilePage';
 import PeerHubPage from '../pages/PeerHubPage';
 import LeaderboardPage from '../pages/LeaderboardPage';
 import ModuleMaterialsPage from '../pages/ModuleMaterialsPage';
+import AdminDashboard from '../pages/AdminDashboard';
 import NotFound from '../pages/NotFound';
 
 /**
@@ -34,26 +36,31 @@ export function AppRoutes() {
         }
       />
 
-      {/* Protected routes - require authentication */}
+      {/* Protected routes - require authentication with shared Layout */}
       <Route element={<ProtectedRoute />}>
-        {/* Routes that require pretest completion */}
-        <Route element={<PretestGate />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/session/:sessionId" element={<SessionPage />} />
-          <Route path="/materials/:moduleId" element={<ModuleMaterialsPage />} />
+        <Route element={<Layout />}>
+          {/* Routes that require pretest completion */}
+          <Route element={<PretestGate />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/session/:sessionId" element={<SessionPage />} />
+            <Route path="/materials/:moduleId" element={<ModuleMaterialsPage />} />
+          </Route>
+
+          {/* Pretest - only for users who haven't completed it */}
+          <Route path="/pretest" element={<PretestPage />} />
+
+          {/* Profile page */}
+          <Route path="/profile" element={<ProfilePage />} />
+
+          {/* Peer Hub - Collaboration */}
+          <Route path="/peer-hub" element={<PeerHubPage />} />
+
+          {/* Leaderboard */}
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
+
+          {/* Admin Dashboard */}
+          <Route path="/admin" element={<AdminDashboard />} />
         </Route>
-
-        {/* Pretest - only for users who haven't completed it */}
-        <Route path="/pretest" element={<PretestPage />} />
-
-        {/* Profile page */}
-        <Route path="/profile" element={<ProfilePage />} />
-
-        {/* Peer Hub - Collaboration */}
-        <Route path="/peer-hub" element={<PeerHubPage />} />
-
-        {/* Leaderboard */}
-        <Route path="/leaderboard" element={<LeaderboardPage />} />
       </Route>
 
       {/* Root redirect */}

@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { Header } from '../components/Header';
 import { sessionService } from '../services/session';
 import { useAuthStore } from '../store/authStore';
 import { toast } from '../hooks/toastState';
@@ -210,10 +209,8 @@ export function SessionPage() {
   // Session complete view (no more questions available from submit)
   if (sessionComplete) {
     return (
-      <div className="min-h-screen bg-gray-100">
-        <Header />
-        <main className="max-w-4xl mx-auto px-4 py-8">
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <div className="mb-6">
               <svg className="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -236,17 +233,14 @@ export function SessionPage() {
               Return to Dashboard
             </button>
           </div>
-        </main>
-      </div>
+        </div>
     );
   }
 
   // Session ended view (from next endpoint - max questions or chapter unlocked)
   if (sessionEnded || !question) {
     return (
-      <div className="min-h-screen bg-gray-100">
-        <Header />
-        <main className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <div className="mb-6">
               <svg className="w-16 h-16 text-blue-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,16 +300,12 @@ export function SessionPage() {
               Return to Dashboard
             </button>
           </div>
-        </main>
-      </div>
+        </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Header />
-
-      <main className="max-w-7xl mx-auto px-4 py-6">
+    <>
         {/* Session Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -612,8 +602,7 @@ export function SessionPage() {
             </Modal>
           </div>
         </div>
-      </main>
-    </div>
+      </>
   );
 }
 
