@@ -12,7 +12,7 @@ from app.db.models.user_module_progress import UserModuleProgress
 
 router = APIRouter(prefix="/modules", tags=["Modules"])
 
-@router.get("/")
+@router.get("")
 async def list_modules(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)

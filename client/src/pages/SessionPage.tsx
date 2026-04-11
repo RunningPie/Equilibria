@@ -118,13 +118,13 @@ export function SessionPage() {
       }
 
       // Check for stagnation - show toast warning with link to peer hub
-      if (result.stagnation_detected) {
-        toast.warning(
-          'Stagnation detected! A peer review session has been created for you.',
-          10000,
-          { label: 'Go to Peer Hub', onClick: () => navigate('/peer-hub') }
-        );
-      }
+      // if (result.stagnation_detected) {
+      //   toast.warning(
+      //     'Stagnation detected! A peer review session has been created for you.',
+      //     10000,
+      //     { label: 'Go to Peer Hub', onClick: () => navigate('/peer-hub') }
+      //   );
+      // }
 
       // Check if peer session was created
       if (result.peer_session_created) {
