@@ -8,7 +8,7 @@ from datetime import datetime
 
 from starlette.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
 
-from app.schemas.pretest import PreTestQuestion, PreTestResult, PreTestAnswerSubmit, PreTestSessionResponse
+from app.schemas.pretest import PreTestQuestion, PreTestResult, PreTestAnswerSubmit, PreTestSessionResponse, QueryResultData
 from app.db.session import get_db
 from app.schemas.jsend import jsend_success, jsend_fail
 

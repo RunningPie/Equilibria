@@ -13,8 +13,49 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy import text
 from app.core.logging_config import get_loggers
 from app.core.config import settings   # exposes settings.DATABASE_URL & settings.SANDBOX_DB_ROLE
+from decimal import Decimal
+from datetime import datetime, date
+import uuid
 
 logger = get_loggers()[0]
+
+
+def serialize_value(value):
+    """Convert asyncpg/SQLAlchemy types to JSON-serializable types."""
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, bytes):
+        return value.hex()
+    # Handle asyncpg.Record or other row-like types that may appear as nested values
+    if hasattr(value, '__class__') and 'asyncpg' in value.__class__.__module__:
+        if hasattr(value, '__dict__'):
+            return str(value)
+        elif hasattr(value, '__iter__') and not isinstance(value, (str, bytes)):
+            return [serialize_value(v) for v in value]
+        else:
+            return str(value)
+    return value
+
+
+def serialize_row(row):
+    """Convert a row mapping to a JSON-serializable dict."""
+    # Handle both RowMapping objects and asyncpg.Record objects
+    if hasattr(row, 'items'):
+        return {key: serialize_value(value) for key, value in row.items()}
+    elif hasattr(row, '__dict__'):
+        return {key: serialize_value(value) for key, value in row.__dict__.items()}
+    elif hasattr(row, '__iter__') and hasattr(row, '_fields'):
+        # asyncpg.Record style
+        return {field: serialize_value(row[i]) for i, field in enumerate(row._fields)}
+    else:
+        # Fallback: convert to dict if possible
+        return dict(row)
 
 
 class SandboxExecutionError(Exception):
@@ -100,7 +141,7 @@ async def execute_query_in_sandbox(
 
             return {
                 "success": True,
-                "rows": [dict(row) for row in rows],
+                "rows": [serialize_row(row) for row in rows],
                 "row_count": len(rows),
             }
 
@@ -110,8 +151,10 @@ async def execute_query_in_sandbox(
         logger.error(f"Query timeout setelah {timeout_ms}ms: {clean_query!r}")
         raise SandboxExecutionError(f"Query execution timeout ({timeout_ms}ms)")
     except Exception as e:
-        logger.error(f"Sandbox execution error: {e}")
-        raise SandboxExecutionError(f"Query execution failed: {str(e)}")
+        # Ensure error message is a simple string, never contains asyncpg types
+        error_msg = str(e)
+        logger.error(f"Sandbox execution error: {error_msg}")
+        raise SandboxExecutionError(f"Query execution failed: {error_msg}")
 
 
 async def compare_query_results(
