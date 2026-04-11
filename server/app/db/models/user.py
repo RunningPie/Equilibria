@@ -4,6 +4,7 @@ Sesuai Technical Specifications v2 Section 3.1 Table users.
 """
 # Updated imports for SQLAlchemy 2.0+ typing
 from sqlalchemy import String, Float, Integer, Boolean, DateTime, CheckConstraint
+from typing import Optional as TypingOptional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
@@ -101,6 +102,27 @@ class User(Base):
         Boolean,
         default=False,
         nullable=False
+    )
+
+    # Admin flag for administrative privileges
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    # Soft delete flag for account lifecycle
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    # Soft delete timestamp
+    deleted_at: Mapped[TypingOptional[DateTime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None
     )
 
     # Account Creation Timestamp

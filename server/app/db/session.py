@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.logging_config import get_loggers
 from typing import AsyncGenerator, Optional
 from sqlalchemy import select
+import ssl
 
 logger = get_loggers()[0]  # Get system logger
 
@@ -42,6 +43,13 @@ class DatabaseSession:
                 "Membuat database engine baru",
                 extra={"event_type": "DB_ENGINE_INIT"}
             )
+            
+            
+            connect_args = {}
+            if "fly" in settings.DATABASE_URL:
+                ssl_context = ssl.create_default_context()
+                connect_args = {'ssl': ssl_context}
+                
             cls._engine = create_async_engine(
                 settings.DATABASE_URL,
                 echo=settings.LOG_LEVEL == "DEBUG",  # log hanya di debug mode
@@ -50,7 +58,8 @@ class DatabaseSession:
                 max_overflow=10,
                 pool_pre_ping=True,
                 pool_recycle=3600,
-                pool_timeout=30
+                pool_timeout=30,
+                connect_args=connect_args
             )
             
             logger.info(

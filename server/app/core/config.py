@@ -15,26 +15,28 @@ class Settings(BaseSettings):
     DB_USER: str = "equilibria_user"
     DB_PASSWORD: str = "equilibria_password"
     DB_NAME: str = "equilibria_db"
+    DB_HOST: str = "db"
+    DB_PORT: str = "5432"
     
     # Fallback: PostgreSQL container vars
     POSTGRES_USER: str = "equilibria_user"
     POSTGRES_PASSWORD: str = "equilibria_password"
     POSTGRES_DB: str = "equilibria_db"
     
-    # Properti turunan   
-    @property
-    def effective_db_user(self) -> str:
-        return self.DB_USER if self.DB_USER != "equilibria_user" else self.POSTGRES_USER
+    # # Properti turunan   
+    # @property
+    # def effective_db_user(self) -> str:
+    #     return self.DB_USER if self.DB_USER != "equilibria_user" else self.POSTGRES_USER
     
-    @property
-    def effective_db_password(self) -> str:
-        return self.DB_PASSWORD if self.DB_PASSWORD != "equilibria_password" else self.POSTGRES_PASSWORD
+    # @property
+    # def effective_db_password(self) -> str:
+    #     return self.DB_PASSWORD if self.DB_PASSWORD != "equilibria_password" else self.POSTGRES_PASSWORD
 
-    @property
-    def effective_db_name(self) -> str:
-        return self.DB_NAME if self.DB_NAME != "equilibria_db" else self.POSTGRES_DB
+    # @property
+    # def effective_db_name(self) -> str:
+    #     return self.DB_NAME if self.DB_NAME != "equilibria_db" else self.POSTGRES_DB
     
-    DATABASE_URL: str = f"postgresql+asyncpg://{effective_db_user}:{effective_db_password}@db:5432/{effective_db_name}"
+    DATABASE_URL: str = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
         
     # ==== Pengaturan Keamanan ====
     JWT_SECRET_KEY: str

@@ -946,7 +946,8 @@ async def get_next_question_endpoint(
                                 "requester_id": str(current_user.user_id),
                                 "reviewer_id": str(peer.user_id),
                                 "question_id": question.question_id,
-                                "session_id": session_id
+                                "session_id": session_id,
+                                "stagnation_source": stagnation_source
                             }
                         )
                     else:

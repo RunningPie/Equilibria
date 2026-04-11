@@ -71,8 +71,10 @@ async def get_current_user(token: str = Depends(extract_token), db=Depends(get_d
         if user_id is None:
             raise credentials_exception
         
-        # ambil user dari DB
-        result = await db.execute(select(User).where(User.user_id == user_id))
+        # ambil user dari DB (exclude soft deleted users)
+        result = await db.execute(
+            select(User).where(User.user_id == user_id, User.is_deleted == False)
+        )
         user = result.scalars().first()
         
         if user is None:

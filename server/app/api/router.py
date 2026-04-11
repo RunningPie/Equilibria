@@ -6,6 +6,7 @@ from .session import router as session_router
 from .collaboration import router as collaboration_router
 from .modules import router as module_router
 from .leaderboard import router as leaderboard_router
+from .admin import router as admin_router
 
 api_router = APIRouter()
 
@@ -16,3 +17,4 @@ api_router.include_router(session_router)
 api_router.include_router(collaboration_router)
 api_router.include_router(module_router)
 api_router.include_router(leaderboard_router)
+api_router.include_router(admin_router)

@@ -66,6 +66,7 @@ class UserResponse(BaseModel):
     has_completed_pretest: bool
     group_assignment: str
     stagnation_ever_detected: bool
+    is_admin: bool
     created_at: datetime
     
     model_config = ConfigDict(
@@ -83,6 +84,7 @@ class UserResponse(BaseModel):
                 "has_completed_pretest": False,
                 "group_assignment": "B",
                 "stagnation_ever_detected": False,
+                "is_admin": False,
                 "created_at": "2024-01-01T12:00:00Z"
             }
         }
@@ -113,6 +115,7 @@ class LoginResponse(BaseModel):
                     "has_completed_pretest": False,
                     "group_assignment": "B",
                     "stagnation_ever_detected": False,
+                    "is_admin": False,
                     "created_at": "2024-01-01T12:00:00Z"
                 }
             }
