@@ -190,27 +190,25 @@ def check_fallback_trigger(
     group_assignment: str,
     current_module_id: str,
     is_next_module_unlocked: bool,
-    final_attempts_count_in_module: int
+    recent_logs: list
 ) -> bool:
     """
     Spesifikasi 6.3: Fallback Trigger (Safety Net untuk Lab Study)
     
-    Trigger berbasis jumlah soal (N=8) untuk memastikan intervensi terpicu
-    dalam timeframe lab study yang terbatas.
+    Trigger berbasis rasio jawaban salah (>50% dari N=8) untuk memastikan
+    intervensi terpicu ketika user mengalami kesulitan berkelanjutan.
     
-    Justifikasi N=8: Vesin et al. (2022) membuktikan konvergensi dalam 7-10 soal.
-    Jika setelah 8 soal user belum unlock chapter berikutnya, sistem dapat 
-    menyimpulkan bahwa konvergensi prematur telah terjadi meski variance Δθ 
-    belum mencapai threshold.
+    Logika: Ambil 8 final attempt terakhir di chapter ini. Jika lebih dari
+    separuhnya (>4) salah DAN chapter berikutnya belum unlock, trigger stagnation.
 
     Args:
         group_assignment: 'A' atau 'B' - hanya aktif untuk Grup A
         current_module_id: ID modul saat ini (skip jika CH03)
         is_next_module_unlocked: True jika chapter berikutnya sudah unlocked
-        final_attempts_count_in_module: Jumlah final attempts di chapter ini
+        recent_logs: List AssessmentLog (8 terakhir, sudah di-order desc)
 
     Returns:
-        bool: True jika fallback trigger terpenuhi, False otherwise
+        bool: True jika fallback trigger terpenuhi (>4 salah dari 8), False otherwise
     """
     # Hanya aktif untuk Grup A
     if group_assignment != 'A':
@@ -224,5 +222,12 @@ def check_fallback_trigger(
     if is_next_module_unlocked:
         return False
     
-    # Trigger jika sudah mengerjakan >= 8 soal di chapter ini
-    return final_attempts_count_in_module >= 8
+    # Periksa apakah sudah ada minimal 8 attempt
+    if len(recent_logs) < 8:
+        return False
+    
+    # Hitung jumlah jawaban salah
+    wrong_count = sum(1 for log in recent_logs if not log.is_correct)
+    
+    # Trigger jika lebih dari separuh (>4) salah
+    return wrong_count > 4

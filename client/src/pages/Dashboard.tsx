@@ -182,7 +182,7 @@ export function Dashboard() {
 
         {/* Leaderboard Preview */}
         <section className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-semibold text-gray-800">Leaderboard</h2>
             <button
               onClick={() => navigate('/leaderboard')}
@@ -194,6 +194,7 @@ export function Dashboard() {
               </svg>
             </button>
           </div>
+          <p className="text-sm text-gray-600 mb-4">Top performers ranked by overall score (80% individual + 20% peer collaboration)</p>
           <div className="bg-white rounded-lg shadow-md p-6">
             {isLoadingLeaderboard ? (
               <div className="animate-pulse space-y-3">
@@ -259,7 +260,8 @@ export function Dashboard() {
 
         {/* Modules List */}
         <section>
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Modules</h2>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Modules</h2>
+          <p className="text-sm text-gray-600 mb-4">Learning units with materials and adaptive assessments. Complete earlier modules to unlock harder ones.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {isLoadingModules ? (
               // Skeleton loading
@@ -281,9 +283,15 @@ export function Dashboard() {
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-semibold text-gray-900">{module.title}</h3>
                     {module.is_locked && (
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
+                      <div className="group relative">
+                        <svg className="w-5 h-5 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-gray-900 text-white text-xs rounded-lg py-2 px-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                          Complete the previous module's assessment to unlock this module.
+                          <div className="absolute -top-1 right-2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                        </div>
+                      </div>
                     )}
                   </div>
                   <p className="text-sm text-gray-600 mb-4 line-clamp-2">{module.description}</p>

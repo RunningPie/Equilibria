@@ -890,17 +890,22 @@ FUNCTION handle_next(session):
         stagnation = detect_stagnation(user.user_id)
 
         IF NOT stagnation:
-            # Fallback trigger: jika user sudah mengerjakan N soal
-            # di chapter ini tanpa unlock chapter berikutnya
-            soal_di_chapter_ini = COUNT(assessment_logs WHERE
+            # Fallback trigger: jika lebih dari separuh dari N soal terakhir
+            # di chapter ini salah (N=8, jadi >4 salah)
+            recent_logs = GET assessment_logs WHERE
                 user_id    = user.user_id AND
                 module_id  = session.module_id AND
-                is_final_attempt = TRUE)
+                is_final_attempt = TRUE
+                ORDER BY attempted_at DESC
+                LIMIT 8
+
+            total_recent = COUNT(recent_logs)
+            wrong_count = COUNT(recent_logs WHERE is_correct = FALSE)
 
             next_module = GET modules WHERE order_index = current_module.order_index + 1
             next_unlocked = (user.theta_individu >= next_module.unlock_theta_threshold)
 
-            IF soal_di_chapter_ini >= 8 AND NOT next_unlocked AND current_module.module_id != 'CH03':
+            IF total_recent >= 8 AND wrong_count > 4 AND NOT next_unlocked AND current_module.module_id != 'CH03':
                 stagnation = TRUE
                 LOG event_type = 'STAGNATION_FALLBACK_TRIGGER'
 

@@ -15,6 +15,7 @@ import PeerHubPage from '../pages/PeerHubPage';
 import LeaderboardPage from '../pages/LeaderboardPage';
 import ModuleMaterialsPage from '../pages/ModuleMaterialsPage';
 import AdminDashboard from '../pages/AdminDashboard';
+import FAQPage from '../pages/FAQPage';
 import NotFound from '../pages/NotFound';
 
 /**
@@ -60,6 +61,9 @@ export function AppRoutes() {
 
           {/* Admin Dashboard */}
           <Route path="/admin" element={<AdminDashboard />} />
+
+          {/* FAQ Page */}
+          <Route path="/faq" element={<FAQPage />} />
         </Route>
       </Route>
 

@@ -855,15 +855,19 @@ async def get_next_question_endpoint(
             # Step 2: Fallback trigger (secondary) - hanya jika variance tidak trigger
             # dan hanya untuk Grup A
             if not stagnation_detected and current_user.group_assignment == 'A':
-                # Query jumlah final attempts di module ini
-                final_attempts_result = await db.execute(
-                    select(AssessmentLog).where(
+                # Query 8 final attempts terakhir di module ini (ordered by attempted_at desc)
+                recent_logs_result = await db.execute(
+                    select(AssessmentLog)
+                    .where(
                         AssessmentLog.user_id == current_user.user_id,
                         AssessmentLog.module_id == session.module_id,
                         AssessmentLog.is_final_attempt == True
                     )
+                    .order_by(AssessmentLog.attempted_at.desc())
+                    .limit(8)
                 )
-                final_attempts_in_module = len(final_attempts_result.scalars().all())
+                recent_logs = recent_logs_result.scalars().all()
+                wrong_count = sum(1 for log in recent_logs if not log.is_correct)
                 
                 # Query next module dan check unlock status
                 current_module_result = await db.execute(
@@ -889,7 +893,7 @@ async def get_next_question_endpoint(
                     group_assignment=current_user.group_assignment,
                     current_module_id=session.module_id,
                     is_next_module_unlocked=is_next_unlocked,
-                    final_attempts_count_in_module=final_attempts_in_module
+                    recent_logs=recent_logs
                 )
                 
                 if fallback_triggered:
@@ -897,7 +901,7 @@ async def get_next_question_endpoint(
                     stagnation_source = 'FALLBACK'
                     system_logger.info(
                         f"Stagnation fallback trigger activated: user={current_user.user_id}, "
-                        f"session={session_id}, final_attempts={final_attempts_in_module}",
+                        f"session={session_id}, wrong_count={wrong_count}/8",
                         extra={"event_type": "STAGNATION_FALLBACK_TRIGGER", "session_id": session_id}
                     )
             
