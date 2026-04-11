@@ -7,7 +7,7 @@ services:
     container_name: equilibria-db
     restart: always
     env_file:
-      - .env
+      - .env.db
     ports:
       - "5432:5432"
     volumes:

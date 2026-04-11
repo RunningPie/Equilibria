@@ -19,23 +19,10 @@ class Settings(BaseSettings):
     DB_PORT: str = "5432"
     
     # Fallback: PostgreSQL container vars
-    POSTGRES_USER: str = "equilibria_user"
-    POSTGRES_PASSWORD: str = "equilibria_password"
-    POSTGRES_DB: str = "equilibria_db"
-    
-    # # Properti turunan   
-    # @property
-    # def effective_db_user(self) -> str:
-    #     return self.DB_USER if self.DB_USER != "equilibria_user" else self.POSTGRES_USER
-    
-    # @property
-    # def effective_db_password(self) -> str:
-    #     return self.DB_PASSWORD if self.DB_PASSWORD != "equilibria_password" else self.POSTGRES_PASSWORD
+    # POSTGRES_USER: str = "equilibria_user"
+    # POSTGRES_PASSWORD: str = "equilibria_password"
+    # POSTGRES_DB: str = "equilibria_db"
 
-    # @property
-    # def effective_db_name(self) -> str:
-    #     return self.DB_NAME if self.DB_NAME != "equilibria_db" else self.POSTGRES_DB
-    
     DATABASE_URL: str = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
         
     # ==== Pengaturan Keamanan ====

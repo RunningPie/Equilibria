@@ -2,3 +2,4 @@
 docs/equ*
 .env
 .vscode
+.env.db
