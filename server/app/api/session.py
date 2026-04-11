@@ -685,6 +685,7 @@ async def submit_answer(
         
         # Update attempt count
         session.current_question_attempt_count += 1
+        session.total_session_attempts += 1
         attempt_number = session.current_question_attempt_count
         
         # Tentukan apakah ini final attempt
@@ -879,7 +880,7 @@ async def get_next_question_endpoint(
         
         # Update Elo rating
         theta_before = current_user.theta_individu
-        k_factor = get_k_factor(current_user.total_attempts)
+        k_factor = get_k_factor(session.total_session_attempts)
         
         new_theta, new_difficulty = update_elo_ratings(
             student_rating=current_user.theta_individu,
@@ -891,7 +892,7 @@ async def get_next_question_endpoint(
         # Update user dan question
         current_user.theta_individu = new_theta
         current_user.total_attempts += 1
-        current_user.k_factor = get_k_factor(current_user.total_attempts)
+        current_user.k_factor = get_k_factor(session.total_session_attempts)
         question.current_difficulty = new_difficulty
         
         # Update final attempt log dengan theta values

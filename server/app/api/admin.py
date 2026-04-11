@@ -218,11 +218,12 @@ async def create_user(
         )
         
         db.add(new_user)
-        # Note: db.commit() is handled by get_db() context manager on successful exit
+        await db.flush()  # Flush to get auto-generated values (user_id, created_at, defaults)
+        await db.refresh(new_user)  # Refresh to populate all fields from DB
         
         logger.info(
             f"Admin {admin.user_id} created user {new_user.user_id}",
-            extra={"event_type": "ADMIN_CREATE_USER", "admin_id": admin.user_id, "new_user_id": new_user.user_id}
+            extra={"event_type": "ADMIN_CREATE_USER", "admin_id": admin.user_id, "new_user_id": str(new_user.user_id)}
         )
         
         return jsend_success(

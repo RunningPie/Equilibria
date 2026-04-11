@@ -55,11 +55,11 @@ def get_k_factor(total_attempts: int)->int:
     Faktor pengali untuk perubahan rating,
     lebih sensitif di awal dan lebih stabil di akhir (konvergensi)
     '''
-    if total_attempts < 10:
+    if total_attempts < 15:
         return K_FACTORS['novice']
-    elif total_attempts < 25:
+    elif total_attempts < 30:
         return K_FACTORS['intermediate']
-    elif total_attempts < 50:
+    elif total_attempts < 60:
         return K_FACTORS['advanced']
     else:
         return K_FACTORS['expert']

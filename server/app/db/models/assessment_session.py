@@ -66,7 +66,13 @@ class AssessmentSession(Base):
         default=0,
         nullable=False
     )
-    
+
+    total_session_attempts: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False
+    )
+
     question_ids_served: Mapped[list] = mapped_column(
         ARRAY(String(10)),
         server_default=text("'{}'"),
