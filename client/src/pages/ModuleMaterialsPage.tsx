@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { getModuleMaterials, type ModuleMaterials, type PDFMaterial } from '../data/moduleMaterials';
 import { sessionService } from '../services/session';
+import { extractErrorMessage } from '../services/api';
 
 /**
  * ModuleMaterialsPage
@@ -40,8 +42,11 @@ export function ModuleMaterialsPage() {
     try {
       const result = await sessionService.startSession({ module_id: moduleId });
       navigate(`/session/${result.session_id}`);
-    } catch {
-      setError('Failed to start assessment session. Please try again.');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to start assessment session. Please try again.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }

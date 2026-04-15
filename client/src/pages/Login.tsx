@@ -4,6 +4,7 @@ import axios from 'axios';
 import { authService } from '../services/auth';
 import { useAuthStore } from '../store/authStore';
 import { toast } from '../hooks/toastState';
+import { extractErrorMessage } from '../services/api';
 
 /**
  * Login Page
@@ -94,13 +95,12 @@ export function Login() {
       // Redirect to dashboard
       navigate('/dashboard', { replace: true });
     } catch (error) {
-      // Extract error message from Axios response or fallback
-      let message = 'An error occurred. Please try again.';
-      if (axios.isAxiosError(error)) {
-        message = error.response?.data?.message || error.message || 'Invalid NIM or password';
-      } else if (error instanceof Error) {
-        message = error.message;
-      }
+      // Extract error message from API response
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : error instanceof Error
+          ? error.message
+          : 'An error occurred. Please try again.';
       setApiError(message);
     } finally {
       setIsLoading(false);

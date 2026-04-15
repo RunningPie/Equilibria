@@ -1,7 +1,7 @@
 """
-Schemas for Collaboration API - Tech Specs v4.2 Section 7.E
+Schema untuk API Collaboration - Tech Specs v4.2 Bagian 7.E
 
-Collaborative endpoints for peer review system.
+Endpoint kolaboratif untuk sistem peer review.
 """
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -11,13 +11,13 @@ from uuid import UUID
 
 
 class QuestionInfo(BaseModel):
-    """Question information for peer review context"""
+    """Informasi soal untuk konteks peer review"""
     content: str = Field(..., description="Question text")
     topic_tags: List[str] = Field(default=[], description="Topic tags for the question")
 
 
 class PeerSessionInboxItem(BaseModel):
-    """Item in reviewer's inbox - pending reviews"""
+    """Item di inbox reviewer - review yang menunggu"""
     session_id: UUID = Field(..., description="Peer session ID")
     question_preview: str = Field(..., description="Question content preview")
     status: str = Field(..., description="Session status (PENDING_REVIEW)")
@@ -37,7 +37,7 @@ class PeerSessionInboxItem(BaseModel):
 
 
 class PeerSessionDetail(BaseModel):
-    """Detail view for reviewer - requester is anonymous"""
+    """Detail view untuk reviewer - requester bersifat anonim"""
     session_id: UUID = Field(..., description="Peer session ID")
     question: QuestionInfo = Field(..., description="Question details")
     requester_query: str = Field(..., description="Requester's SQL query")
@@ -62,7 +62,7 @@ class PeerSessionDetail(BaseModel):
 
 
 class ReviewSubmitRequest(BaseModel):
-    """Request to submit review feedback"""
+    """Request untuk submit feedback review"""
     review_content: str = Field(..., description="Reviewer's constructive feedback", min_length=1)
     
     model_config = ConfigDict(
@@ -75,7 +75,7 @@ class ReviewSubmitRequest(BaseModel):
 
 
 class ReviewSubmitResult(BaseModel):
-    """Result after submitting review"""
+    """Hasil setelah submit review"""
     session_id: UUID = Field(..., description="Peer session ID")
     system_score: float = Field(..., description="NLP-calculated quality score [0.0, 1.0]")
     status: str = Field(..., description="Updated status (WAITING_CONFIRMATION)")
@@ -93,7 +93,7 @@ class ReviewSubmitResult(BaseModel):
 
 
 class PeerSessionRequest(BaseModel):
-    """Item in requester's requests list"""
+    """Item di daftar request requester"""
     session_id: UUID = Field(..., description="Peer session ID")
     question_preview: str = Field(..., description="Question content preview")
     status: str = Field(..., description="Session status")
@@ -115,7 +115,7 @@ class PeerSessionRequest(BaseModel):
 
 
 class RateRequest(BaseModel):
-    """Request to rate peer feedback"""
+    """Request untuk memberi rating feedback peer"""
     is_helpful: bool = Field(..., description="Whether the feedback was helpful (thumbs up/down)")
     
     model_config = ConfigDict(
@@ -128,7 +128,7 @@ class RateRequest(BaseModel):
 
 
 class RateResult(BaseModel):
-    """Result after rating feedback - includes Social Elo update"""
+    """Hasil setelah memberi rating feedback - termasuk update Social Elo"""
     final_score: float = Field(..., description="Combined score: 0.5*system_score + 0.5*is_helpful")
     reviewer_theta_social_before: float = Field(..., description="Reviewer's social rating before update")
     reviewer_theta_social_after: float = Field(..., description="Reviewer's social rating after update")

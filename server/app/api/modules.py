@@ -58,7 +58,8 @@ async def list_modules(
                     "title": module.title,
                     "description": module.description,
                     "is_locked": is_locked,
-                    "difficulty_range": [module.difficulty_min, module.difficulty_max]
+                    "difficulty_range": [module.difficulty_min, module.difficulty_max],
+                    "unlock_theta_threshold": module.unlock_theta_threshold
                 }
             )
         

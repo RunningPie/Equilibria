@@ -1,6 +1,6 @@
 """
-Admin API Endpoints - Administrative functionalities
-Includes user CRUD operations and log access
+Endpoint API Admin - Fungsionalitas administratif
+Berisi operasi CRUD user dan akses log
 """
 import os
 import json
@@ -39,19 +39,19 @@ router = APIRouter(
 
 logger = get_loggers()[0]
 
-# Log directories (relative to project root)
+# Direktori log (relatif terhadap root proyek)
 SYSLOG_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "logs", "syslogs")
 ASSLOG_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "logs", "asslogs")
 
 
-# === Admin Authorization Dependency ===
+# === Dependency Autorisasi Admin ===
 
 async def get_current_admin(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """
-    Dependency to ensure only admins can access admin endpoints
+    Dependency untuk memastikan hanya admin yang bisa mengakses endpoint admin
     """
     if not current_user.is_admin:
         logger.warning(
@@ -65,7 +65,7 @@ async def get_current_admin(
     return current_user
 
 
-# === User CRUD Endpoints ===
+# === Endpoint CRUD User ===
 
 @router.get(
     "/users",
@@ -81,10 +81,10 @@ async def list_users(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    List all users with pagination and optional sorting (admin only)
+    List semua user dengan pagination dan sorting opsional (hanya admin)
     """
     try:
-        # Validate sortby parameter
+        # Validasi parameter sortby
         order_by = None
         if sortby:
             sortby_lower = sortby.lower()
@@ -95,16 +95,16 @@ async def list_users(
                 )
             order_by = User.nim if sortby_lower == 'nim' else User.full_name
         
-        # Get total count using func.count for efficiency
+        # Ambil total count menggunakan func.count untuk efisiensi
         count_result = await db.execute(select(func.count()).select_from(User))
         total = count_result.scalar()
         
-        # Build query
+        # Bangun query
         query = select(User)
         if order_by is not None:
             query = query.order_by(order_by.asc())
         
-        # Get paginated users
+        # Ambil user dengan pagination
         offset = (page - 1) * page_size
         result = await db.execute(
             query
@@ -151,7 +151,7 @@ async def get_user(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Get a specific user by ID (admin only)
+    Ambil user tertentu berdasarkan ID (hanya admin)
     """
     try:
         result = await db.execute(select(User).where(User.user_id == user_id))
@@ -197,10 +197,10 @@ async def create_user(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Create a new user (admin only)
+    Buat user baru (hanya admin)
     """
     try:
-        # Check if NIM already exists
+        # Cek apakah NIM sudah ada
         result = await db.execute(select(User).where(User.nim == user_data.nim))
         if result.scalars().first():
             return jsend_fail(
@@ -208,7 +208,7 @@ async def create_user(
                 message="NIM already registered"
             )
         
-        # Create new user
+        # Buat user baru
         new_user = User(
             nim=user_data.nim,
             full_name=user_data.full_name,
@@ -218,8 +218,8 @@ async def create_user(
         )
         
         db.add(new_user)
-        await db.flush()  # Flush to get auto-generated values (user_id, created_at, defaults)
-        await db.refresh(new_user)  # Refresh to populate all fields from DB
+        await db.flush()  # Flush untuk mendapatkan nilai auto-generated (user_id, created_at, defaults)
+        await db.refresh(new_user)  # Refresh untuk mengisi field auto-generated
         
         logger.info(
             f"Admin {admin.user_id} created user {new_user.user_id}",
@@ -232,7 +232,7 @@ async def create_user(
             data=AdminUserResponse.model_validate(new_user)
         )
     except Exception as e:
-        # Note: db.rollback() is handled by get_db() context manager on exception
+        # Catatan: db.rollback() ditangani oleh get_db() context manager saat exception
         logger.error(
             f"Error creating user: {str(e)}",
             extra={"event_type": "ADMIN_CREATE_USER_ERROR", "admin_id": admin.user_id}
@@ -253,7 +253,7 @@ async def update_user(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Update a user (admin only)
+    Update user (hanya admin)
     """
     try:
         result = await db.execute(select(User).where(User.user_id == user_id))
@@ -265,7 +265,7 @@ async def update_user(
                 message="User not found"
             )
         
-        # Update fields if provided
+        # Update field jika diberikan
         if user_update.full_name is not None:
             user.full_name = user_update.full_name
         if user_update.password is not None:
@@ -281,7 +281,7 @@ async def update_user(
         if user_update.theta_social is not None:
             user.theta_social = user_update.theta_social
         
-        # Note: db.commit() is handled by get_db() context manager on successful exit
+        # Catatan: db.commit() ditangani oleh get_db() context manager saat exit berhasil
         
         logger.info(
             f"Admin {admin.user_id} updated user {user_id}",
@@ -294,7 +294,7 @@ async def update_user(
             data=AdminUserResponse.model_validate(user)
         )
     except Exception as e:
-        # Note: db.rollback() is handled by get_db() context manager on exception
+        # Catatan: db.rollback() ditangani oleh get_db() context manager saat exception
         logger.error(
             f"Error updating user {user_id}: {str(e)}",
             extra={"event_type": "ADMIN_UPDATE_USER_ERROR", "admin_id": admin.user_id, "target_user_id": user_id}
@@ -314,8 +314,8 @@ async def delete_user(
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
     """
-    Soft delete a user (admin only) - preserves all related data for analytics.
-    Note: db.commit() is handled automatically by get_db() context manager.
+    Soft delete user (hanya admin) - mempertahankan semua data terkait untuk analytics.
+    Catatan: db.commit() ditangani otomatis oleh get_db() context manager.
     """
     try:
         result = await db.execute(select(User).where(User.user_id == user_id))
@@ -327,30 +327,30 @@ async def delete_user(
                 message="User not found"
             )
         
-        # Prevent admin from deleting themselves
+        # Cegah admin menghapus dirinya sendiri
         if user.user_id == admin.user_id:
             return jsend_fail(
                 code=status.HTTP_400_BAD_REQUEST,
                 message="Cannot delete your own account"
             )
         
-        # Check if already deleted
+        # Cek apakah sudah dihapus
         if user.is_deleted:
             return jsend_fail(
                 code=status.HTTP_400_BAD_REQUEST,
                 message="User is already deleted"
             )
         
-        # Soft delete: mark as deleted and anonymize PII
+        # Soft delete: tandai sebagai dihapus dan anonimkan PII
         deleted_at = datetime.now()
         user.is_deleted = True
         user.deleted_at = deleted_at
-        # Anonymize NIM: 'del_' (4 chars) + first 16 chars of UUID = 20 chars max
+        # Anonimkan NIM: 'del_' (4 karakter) + 16 karakter pertama UUID = maksimal 20 karakter
         user.nim = f"del_{str(user.user_id)[:16]}"
         user.full_name = "Deleted User"
-        user.password_hash = "deleted"  # Invalidate password
+        user.password_hash = "deleted"  # Invalidasi password
         
-        # Note: db.commit() is handled by get_db() context manager on successful exit
+        # Catatan: db.commit() ditangani oleh get_db() context manager saat exit berhasil
         
         logger.info(
             f"Admin {admin.user_id} soft deleted user {user_id}",
@@ -368,7 +368,7 @@ async def delete_user(
             )
         )
     except Exception as e:
-        # Note: db.rollback() is handled by get_db() context manager on exception
+        # Catatan: db.rollback() ditangani oleh get_db() context manager saat exception
         logger.error(
             f"Error soft deleting user {user_id}: {str(e)}",
             extra={"event_type": "ADMIN_DELETE_USER_ERROR", "admin_id": admin.user_id, "target_user_id": user_id}
@@ -376,11 +376,11 @@ async def delete_user(
         raise  # Re-raise to let get_db() handle rollback
 
 
-# === Log Access Endpoints ===
+# === Endpoint Akses Log ===
 
 def _get_log_files(log_dir: str, date_str: Optional[str] = None) -> List[str]:
     """
-    Helper function to get log files, optionally filtered by date
+    Fungsi helper untuk mendapatkan file log, opsional difilter berdasarkan tanggal
     """
     if not os.path.exists(log_dir):
         return []
@@ -389,7 +389,7 @@ def _get_log_files(log_dir: str, date_str: Optional[str] = None) -> List[str]:
     log_files = [f for f in all_files if f.endswith('.json') and not f.startswith('.')]
     
     if date_str:
-        # Filter by date - files are named like: syslog_YYYYMMDD_HHMMSS.json
+        # Filter berdasarkan tanggal - file bernama seperti: syslog_YYYYMMDD_HHMMSS.json
         log_files = [f for f in log_files if f"_{date_str}_" in f]
     
     return sorted(log_files)
@@ -397,7 +397,7 @@ def _get_log_files(log_dir: str, date_str: Optional[str] = None) -> List[str]:
 
 def _read_log_file(log_dir: str, filename: str) -> List[LogEntry]:
     """
-    Helper function to read and parse a log file
+    Fungsi helper untuk membaca dan parse file log
     """
     entries = []
     filepath = os.path.join(log_dir, filename)
@@ -417,7 +417,7 @@ def _read_log_file(log_dir: str, filename: str) -> List[LogEntry]:
                         extra=log_data.get('extra')
                     ))
                 except json.JSONDecodeError:
-                    # Skip malformed lines
+                    # Lewati baris yang malformed
                     continue
     except Exception:
         pass
@@ -427,17 +427,17 @@ def _read_log_file(log_dir: str, filename: str) -> List[LogEntry]:
 
 def _read_log_file_limited(log_dir: str, filename: str, limit: int) -> List[LogEntry]:
     """
-    Helper function to read last N lines from a log file efficiently
+    Fungsi helper untuk membaca N baris terakhir dari file log secara efisien
     """
     entries = []
     filepath = os.path.join(log_dir, filename)
     
     try:
-        # Read all lines, parse from the end (most recent first)
+        # Baca semua baris, parse dari akhir (yang paling baru terlebih dahulu)
         with open(filepath, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         
-        # Process from the end (latest entries) up to limit
+        # Proses dari akhir (entry terbaru) hingga limit
         for line in reversed(lines):
             line = line.strip()
             if not line:
@@ -455,7 +455,7 @@ def _read_log_file_limited(log_dir: str, filename: str, limit: int) -> List[LogE
             except json.JSONDecodeError:
                 continue
         
-        # Reverse back to chronological order
+        # Balik ke urutan kronologis
         entries.reverse()
     except Exception:
         pass
@@ -475,10 +475,10 @@ async def get_syslogs(
     admin: User = Depends(get_current_admin)
 ) -> JSONResponse:
     """
-    Get system logs (admin only)
+    Ambil system logs (hanya admin)
     
-    - **date**: Optional date filter in YYYYMMDD format (e.g., 20260411)
-    - **limit**: If provided, returns only the N latest entries from the most recent log file
+    - **date**: Filter tanggal opsional dalam format YYYYMMDD (misal, 20260411)
+    - **limit**: Jika diberikan, hanya mengembalikan N entry terbaru dari file log terakhir
     """
     try:
         log_files = _get_log_files(SYSLOG_DIR, date)
@@ -534,10 +534,10 @@ async def get_asslogs(
     admin: User = Depends(get_current_admin)
 ) -> JSONResponse:
     """
-    Get assessment logs (admin only)
+    Ambil assessment logs (hanya admin)
     
-    - **date**: Optional date filter in YYYYMMDD format (e.g., 20260411)
-    - **limit**: If provided, returns only the N latest entries from the most recent log file
+    - **date**: Filter tanggal opsional dalam format YYYYMMDD (misal, 20260411)
+    - **limit**: Jika diberikan, hanya mengembalikan N entry terbaru dari file log terakhir
     """
     try:
         log_files = _get_log_files(ASSLOG_DIR, date)

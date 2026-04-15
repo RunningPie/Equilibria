@@ -13,23 +13,26 @@ interface PydanticErrorDetail {
 }
 
 /**
- * Extract user-friendly error message from 422 Unprocessable Entity response.
- * Handles both JSend fail format and Pydantic validation error format.
+ * Extract user-friendly error message from API error response.
+ * Handles JSend format (fail/error), Pydantic validation errors, and generic errors.
+ * For 4XX/5XX responses, prioritizes the 'message' field from the response body.
  */
-export function extract422ErrorMessage(error: AxiosError): string {
-  if (error.response?.status !== 422) {
-    return error.message || 'An error occurred';
+export function extractErrorMessage(error: AxiosError): string {
+  if (!error.response) {
+    return error.message || 'Network error. Please check your connection.';
   }
 
+  const status = error.response.status;
   const data = error.response.data as Record<string, unknown>;
 
-  // Check for JSend fail format
-  if (data && typeof data === 'object') {
-    if (data.status === 'fail' && typeof data.message === 'string') {
+  // For 4XX and 5XX responses, extract message from response body
+  if (status >= 400 && status < 600 && data && typeof data === 'object') {
+    // JSend format: status + message
+    if (typeof data.message === 'string') {
       return data.message;
     }
 
-    // Check for Pydantic validation error format
+    // Pydantic validation error format (commonly 422)
     if (Array.isArray(data.detail)) {
       const details = data.detail as PydanticErrorDetail[];
       if (details.length > 0 && typeof details[0].msg === 'string') {
@@ -38,7 +41,15 @@ export function extract422ErrorMessage(error: AxiosError): string {
     }
   }
 
-  return 'Invalid input. Please check your data and try again.';
+  // Fallback to error message or generic message
+  return error.message || `Request failed with status ${status}`;
+}
+
+/**
+ * @deprecated Use extractErrorMessage instead. This function only handles 422 errors.
+ */
+export function extract422ErrorMessage(error: AxiosError): string {
+  return extractErrorMessage(error);
 }
 
 // Create axios instance

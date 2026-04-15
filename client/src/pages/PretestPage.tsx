@@ -6,6 +6,7 @@ import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { ReferenceImage } from '../components/ReferenceImage';
 import { QueryResultDisplay } from '../components/QueryResultDisplay';
+import { Modal } from '../components/Modal';
 import { pretestService } from '../services/pretest';
 import { extract422ErrorMessage } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -28,6 +29,7 @@ export function PretestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<PreTestResult | null>(null);
   const [error, setError] = useState('');
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // Initialize pretest session
   useEffect(() => {
@@ -44,6 +46,13 @@ export function PretestPage() {
           updateUser({ has_completed_pretest: true });
           navigate('/dashboard', { replace: true });
           return;
+        }
+
+        // Show welcome modal on first visit to pretest in this browser session
+        const hasSeenWelcome = sessionStorage.getItem('pretest_welcome_shown');
+        if (!hasSeenWelcome) {
+          setShowWelcomeModal(true);
+          sessionStorage.setItem('pretest_welcome_shown', 'true');
         }
 
         // Get first question
@@ -142,7 +151,7 @@ export function PretestPage() {
               </div>
             )}
             <button
-              onClick={() => navigate('/dashboard', { replace: true })}
+              onClick={() => navigate('/dashboard?from=pretest', { replace: true })}
               className="w-full max-w-xs mx-auto bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
             >
               Go to Dashboard
@@ -154,6 +163,36 @@ export function PretestPage() {
 
   return (
     <>
+      {/* Welcome Modal */}
+      <Modal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        title="Welcome to Your SQL Assessment"
+        footer={
+          <button
+            onClick={() => setShowWelcomeModal(false)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            Got it, let's start!
+          </button>
+        }
+      >
+        <div className="space-y-4 text-gray-700">
+          <p>
+            This is a quick pretest to assess your current SQL knowledge. Here's what you need to know:
+          </p>
+          <ul className="list-disc list-inside space-y-2 ml-2">
+            <li>You will answer <strong>5 SQL questions</strong></li>
+            <li>Write your SQL queries in the code editor</li>
+            <li>Use the <strong>database schema diagram</strong> as reference</li>
+            <li>Your results will determine your starting level</li>
+          </ul>
+          <p className="text-sm text-gray-500">
+            Take your time and do your best. Good luck!
+          </p>
+        </div>
+      </Modal>
+
         {/* Progress Bar */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">

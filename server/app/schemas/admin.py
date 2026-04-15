@@ -1,6 +1,6 @@
 """
-Admin Schema - Schemas for admin functionality
-Includes user management and log access schemas
+Schema Admin - Schema untuk fungsionalitas admin
+Berisi schema manajemen user dan akses log
 """
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
@@ -11,7 +11,7 @@ from uuid import UUID
 # === User Management Schemas ===
 
 class AdminUserCreate(BaseModel):
-    """Schema for creating a new user (admin only)"""
+    """Schema untuk membuat user baru (hanya admin)"""
     nim: str = Field(..., min_length=8, max_length=10, example="1234567890")
     full_name: str = Field(..., max_length=100, example="John Doe")
     password: str = Field(..., min_length=8, example="strongpassword123")
@@ -32,7 +32,7 @@ class AdminUserCreate(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
-    """Schema for updating an existing user (admin only)"""
+    """Schema untuk mengupdate user yang ada (hanya admin)"""
     full_name: Optional[str] = Field(None, max_length=100, example="John Doe Updated")
     password: Optional[str] = Field(None, min_length=8, example="newstrongpassword123")
     group_assignment: Optional[str] = Field(None, max_length=1, pattern="^[AB]$", example="A")
@@ -57,7 +57,7 @@ class AdminUserUpdate(BaseModel):
 
 
 class AdminUserResponse(BaseModel):
-    """Schema for admin user response with all fields"""
+    """Schema untuk response admin user dengan semua field"""
     user_id: UUID
     nim: str
     full_name: str
@@ -99,7 +99,7 @@ class AdminUserResponse(BaseModel):
 
 
 class UserListResponse(BaseModel):
-    """Schema for list of users response"""
+    """Schema untuk response daftar user"""
     users: List[AdminUserResponse]
     total: int
     page: int = Field(..., ge=1, example=1)
@@ -120,7 +120,7 @@ class UserListResponse(BaseModel):
 # === Log Access Schemas ===
 
 class LogQueryParams(BaseModel):
-    """Query parameters for log filtering"""
+    """Parameter query untuk filtering log"""
     date: Optional[str] = Field(None, pattern=r"^\d{8}$", example="20260411", 
                                   description="Date in YYYYMMDD format")
     
@@ -134,7 +134,7 @@ class LogQueryParams(BaseModel):
 
 
 class LogEntry(BaseModel):
-    """Schema for a single log entry"""
+    """Schema untuk satu entry log"""
     timestamp: Optional[str] = Field(None, example="2026-04-11T10:57:00Z")
     level: Optional[str] = Field(None, example="INFO")
     message: str = Field(..., example="Log message content")
@@ -153,7 +153,7 @@ class LogEntry(BaseModel):
 
 
 class LogsResponse(BaseModel):
-    """Schema for logs response"""
+    """Schema untuk response log"""
     date: Optional[str] = Field(None, example="20260411")
     files: List[str] = Field(default=[], example=["syslog_20260411_105700.json"])
     logs: List[LogEntry] = Field(default=[], description="List of log entries")
@@ -172,7 +172,7 @@ class LogsResponse(BaseModel):
 
 
 class DeleteUserResponse(BaseModel):
-    """Schema for soft delete user response"""
+    """Schema untuk response soft delete user"""
     message: str = Field(..., example="User soft deleted successfully")
     deleted_user_id: UUID
     is_deleted: bool = Field(..., example=True)

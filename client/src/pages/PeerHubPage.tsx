@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 import { Modal } from '../components/Modal';
 import { collaborationService } from '../services/collaboration';
 import type { PeerSessionInboxItem, PeerSessionRequest, PeerSessionDetail } from '../types';
+import { extractErrorMessage } from '../services/api';
 
 type Tab = 'reviews' | 'requests';
 
@@ -25,8 +27,13 @@ function ReviewModal({ sessionId, onClose, onSubmit, isSubmitting }: ReviewModal
       .then((data) => {
         if (!cancelled) setDetail(data);
       })
-      .catch(() => {
-        if (!cancelled) setError('Failed to load details');
+      .catch((error) => {
+        if (!cancelled) {
+          const message = axios.isAxiosError(error)
+            ? extractErrorMessage(error)
+            : 'Failed to load details';
+          setError(message);
+        }
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -146,8 +153,13 @@ function ViewDetailModal({ sessionId, onClose }: ViewDetailModalProps) {
       .then((data) => {
         if (!cancelled) setDetail(data);
       })
-      .catch(() => {
-        if (!cancelled) setError('Failed to load details');
+      .catch((error) => {
+        if (!cancelled) {
+          const message = axios.isAxiosError(error)
+            ? extractErrorMessage(error)
+            : 'Failed to load details';
+          setError(message);
+        }
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -287,8 +299,11 @@ export function PeerHubPage() {
       ]);
       setInboxItems(inboxData);
       setRequests(requestsData);
-    } catch {
-      setError('Failed to load collaboration data');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to load collaboration data';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -305,8 +320,11 @@ export function PeerHubPage() {
       await collaborationService.submitReview(reviewModalSession, content);
       setReviewModalSession(null);
       fetchData();
-    } catch {
-      setError('Failed to submit review');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to submit review';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -319,8 +337,11 @@ export function PeerHubPage() {
       await collaborationService.rateFeedback(ratingModalRequest.session_id, isHelpful);
       setRatingModalRequest(null);
       fetchData();
-    } catch {
-      setError('Failed to rate feedback');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to rate feedback';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

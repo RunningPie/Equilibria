@@ -50,7 +50,7 @@ MODULES_DATA = [
         "description": "JOINs, Subqueries, and CTEs",
         "difficulty_min": 1400.0,
         "difficulty_max": 1800.0,
-        "unlock_theta_threshold": 1600.0,
+        "unlock_theta_threshold": 1500.0,
         "order_index": 3,
         "content_html": "<h1>Advanced Querying</h1><p>Learn JOINs and subqueries...</p>",
     },

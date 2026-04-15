@@ -204,13 +204,13 @@ async def start_session(
                 return jsend_fail(
                     code=status.HTTP_409_CONFLICT,
                     message=f"Kamu masih memiliki sesi aktif di {active_session.module_id}. Akhiri sesi tersebut untuk memulai sesi baru.",
-                    data={
-                        "active_session": {
-                            "session_id": str(active_session.session_id),
-                            "module_id": active_session.module_id,
-                            "started_at": active_session.started_at.isoformat()
-                        }
-                    }
+                    # data={
+                    #     "active_session": {
+                    #         "session_id": str(active_session.session_id),
+                    #         "module_id": active_session.module_id,
+                    #         "started_at": active_session.started_at.isoformat()
+                    #     }
+                    # }
                 )
         
         # Validasi modul
@@ -226,18 +226,27 @@ async def start_session(
         
         # Cek apakah modul unlocked untuk user
         if session_request.module_id != "CH01":
-            # Check unlock threshold
-            module_result = await db.execute(
-                select(Module.unlock_theta_threshold)
-                .where(Module.module_id == session_request.module_id)
+            # Check if module already unlocked via UserModuleProgress
+            progress_result = await db.execute(
+                select(UserModuleProgress.is_unlocked)
+                .where(UserModuleProgress.user_id == current_user.user_id)
+                .where(UserModuleProgress.module_id == session_request.module_id)
             )
-            module_threshold = module_result.scalar_one_or_none()
-            
-            if module_threshold and current_user.theta_individu < module_threshold:
-                return jsend_fail(
-                    code=HTTP_403_FORBIDDEN,
-                    message=f"Module {session_request.module_id} locked. Need theta >= {module_threshold}"
+            is_unlocked = progress_result.scalar_one_or_none()
+
+            # If not unlocked, check theta threshold
+            if not is_unlocked:
+                module_result = await db.execute(
+                    select(Module.unlock_theta_threshold)
+                    .where(Module.module_id == session_request.module_id)
                 )
+                module_threshold = module_result.scalar_one_or_none()
+
+                if module_threshold and current_user.theta_individu < module_threshold:
+                    return jsend_fail(
+                        code=HTTP_403_FORBIDDEN,
+                        message=f"Module {session_request.module_id} locked. Need theta >= {module_threshold}"
+                    )
         
         # Buat session baru
         new_session = AssessmentSession(
@@ -530,7 +539,8 @@ async def get_current_question(
                     content=current_question.content,
                     current_difficulty=current_question.current_difficulty,
                     attempt_count=session.current_question_attempt_count + 1,
-                    max_attempts=3
+                    max_attempts=3,
+                    topic_tags=current_question.topic_tags
                 )
                 
                 system_logger.info(
@@ -580,7 +590,8 @@ async def get_current_question(
                 content=selected_question.content,
                 current_difficulty=selected_question.current_difficulty,
                 attempt_count=session.current_question_attempt_count + 1,
-                max_attempts=3
+                max_attempts=3,
+                topic_tags=selected_question.topic_tags
             )
         
         system_logger.info(

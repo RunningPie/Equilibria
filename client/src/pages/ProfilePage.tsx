@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { ProfileAvatar } from '../components/Header';
 import { useUser, useAuthStore } from '../store/authStore';
 import { profileService } from '../services/profile';
 import { authService } from '../services/auth';
 import type { ProfileStats } from '../types';
 import { calculateThetaDisplay } from '../types';
+import { extractErrorMessage } from '../services/api';
 
 /**
  * ProfilePage
@@ -65,8 +67,11 @@ export function ProfilePage() {
       setNewPassword('');
       setConfirmPassword('');
       setIsEditing(false);
-    } catch {
-      setError('Failed to update profile');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to update profile';
+      setError(message);
     }
   };
 

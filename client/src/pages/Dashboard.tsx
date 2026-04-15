@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import axios from 'axios';
 import { useUser } from '../store/authStore';
+import { Modal } from '../components/Modal';
 import { sessionService } from '../services/session';
 import { profileService } from '../services/profile';
 import { authService } from '../services/auth';
@@ -8,6 +10,7 @@ import { modulesService, type ModuleWithStatus } from '../services/modules';
 import { leaderboardService } from '../services/leaderboard';
 import type { ProfileStats, ActiveSessionCheck, User, LeaderboardEntry } from '../types';
 import { calculateThetaDisplay } from '../types';
+import { extractErrorMessage } from '../services/api';
 
 /**
  * Dashboard Page
@@ -15,7 +18,11 @@ import { calculateThetaDisplay } from '../types';
  */
 export function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = useUser();
+
+  // Welcome modal state for first-time users from pretest
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   // Data states
   const [stats, setStats] = useState<ProfileStats | null>(null);
@@ -33,6 +40,16 @@ export function Dashboard() {
 
   // Error states
   const [error, setError] = useState('');
+
+  // Check if user just arrived from pretest
+  useEffect(() => {
+    const fromPretest = searchParams.get('from') === 'pretest';
+    if (fromPretest) {
+      setShowWelcomeModal(true);
+      // Remove query param without reloading
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Fetch dashboard data
   useEffect(() => {
@@ -52,8 +69,11 @@ export function Dashboard() {
         if (sessionData) setActiveSession(sessionData);
         if (userDataResult) setUserData(userDataResult);
         if (leaderboardData) setLeaderboardEntries(leaderboardData.entries);
-      } catch {
-        setError('Failed to load dashboard data');
+      } catch (error) {
+        const message = axios.isAxiosError(error)
+          ? extractErrorMessage(error)
+          : 'Failed to load dashboard data';
+        setError(message);
       } finally {
         setIsLoadingStats(false);
         setIsLoadingModules(false);
@@ -78,8 +98,11 @@ export function Dashboard() {
     try {
       const result = await sessionService.startSession({ module_id: moduleId });
       navigate(`/session/${result.session_id}`);
-    } catch {
-      setError('Failed to start session');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to start session';
+      setError(message);
     }
   };
 
@@ -89,6 +112,119 @@ export function Dashboard() {
 
   return (
     <>
+      {/* First-time Dashboard Welcome Modal */}
+      <Modal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        title="Welcome to Equilibria!"
+        footer={
+          <button
+            onClick={() => setShowWelcomeModal(false)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            Get Started
+          </button>
+        }
+      >
+        <div className="space-y-4 text-gray-700 max-h-[60vh] overflow-y-auto">
+          <p>
+            Your pretest is complete! Here's what you can do on Equilibria:
+          </p>
+
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Track Your Progress</p>
+                <p className="text-sm text-gray-600">View your overall score, individual and social ratings, and stats on your dashboard.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zm0 0H4a2 2 0 002 2h1m11-2h3a2 2 0 01-2 2h-1" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Compete on Leaderboard</p>
+                <p className="text-sm text-gray-600">See how you rank against other students based on your overall performance.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Learn & Practice SQL</p>
+                <p className="text-sm text-gray-600">Access learning modules, read materials, and take adaptive assessments to improve your skills.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Peer Features</p>
+                <p className="text-sm text-gray-600">Collaborate with peers, review submissions, and earn social rating points through peer hub.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-gray-200">
+            <p className="font-medium text-gray-900 mb-2">Navigation Guide:</p>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span className="text-gray-600">Dashboard - Home</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span className="text-gray-600">Peer Hub</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zm0 0H4a2 2 0 002 2h1m11-2h3a2 2 0 01-2 2h-1" />
+                </svg>
+                <span className="text-gray-600">Leaderboard</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-gray-600">FAQ / Help</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="text-gray-600">Profile</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="text-gray-600">Logout</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
       {error && (
         <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
           {error}
@@ -296,37 +432,42 @@ export function Dashboard() {
                   </div>
                   <p className="text-sm text-gray-600 mb-4 line-clamp-2">{module.description}</p>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 mb-4">
                     <span className="text-xs text-gray-500">
                       Difficulty: {module.difficulty_range[0]}-{module.difficulty_range[1]}
                     </span>
-
-                    {module.is_locked ? (
-                      <span className="text-xs text-gray-500">Locked</span>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => navigate(`/materials/${module.module_id}`)}
-                          className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors flex items-center gap-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                          </svg>
-                          Read Materials
-                        </button>
-                        <button
-                          onClick={() => handleStartSession(module.module_id)}
-                          className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Start Assessment
-                        </button>
-                      </div>
-                    )}
+                    <span className="text-xs text-gray-500">
+                      Unlock: ≥{module.unlock_theta_threshold}
+                    </span>
                   </div>
+
+                  {module.is_locked ? (
+                    <div className="flex justify-end">
+                      <span className="text-xs text-gray-500">Locked</span>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => navigate(`/materials/${module.module_id}`)}
+                        className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        Read Materials
+                      </button>
+                      <button
+                        onClick={() => handleStartSession(module.module_id)}
+                        className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Start Assessment
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             )}

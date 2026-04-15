@@ -6,6 +6,7 @@ const MODULES_BASE = '/modules';
 export interface ModuleWithStatus extends Module {
   is_locked: boolean;
   difficulty_range: [number, number];
+  unlock_theta_threshold: number;
 }
 
 export const modulesService = {

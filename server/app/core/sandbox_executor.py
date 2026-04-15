@@ -1,7 +1,7 @@
 '''
-Core modul untuk eksekusi SQL user dan perbandingan dengan kunci jawaban.
+Modul inti untuk eksekusi SQL pengguna dan perbandingan dengan kunci jawaban.
 
-Fix (2026-03-13):
+Perbaikan (2026-03-13):
   - Sandbox sekarang pakai koneksi terpisah yang di-SET ROLE ke sandbox_executor
     dan SET search_path ke sandbox
   - statement_timeout di-set SEBELUM query dijalankan.
@@ -23,41 +23,41 @@ logger = get_loggers()[0]
 
 def parse_sqlalchemy_error(error_msg: str) -> str:
     """
-    Parse SQLAlchemy error messages to extract user-friendly error text.
+    Parse pesan error SQLAlchemy untuk mengekstrak teks error yang user-friendly.
     
-    SQLAlchemy errors typically have this format:
+    Error SQLAlchemy biasanya memiliki format ini:
     (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.X'>: USER_FRIENDLY_MSG [SQL: ...]
     
-    We want to extract the USER_FRIENDLY_MSG part.
+    Kita ingin mengekstrak bagian USER_FRIENDLY_MSG.
     
-    Examples:
+    Contoh:
     - "column 'x' does not exist"
     - "unterminated quoted identifier at or near 'y'"
     - "relation 'z' does not exist"
     - "syntax error at or near 'w'"
     """
     if not error_msg:
-        return "Query execution failed"
+        return "Eksekusi query gagal"
     
-    # Pattern 1: Extract between ">: " and " [SQL:" 
-    # This captures: ...ProgrammingError) <class 'X.Y'>: EXTRACT_THIS [SQL: ...
+    # Pola 1: Ekstrak antara ">: " dan " [SQL:"
+    # Ini menangkap: ...ProgrammingError) <class 'X.Y'>: EXTRACT_THIS [SQL: ...
     pattern1 = r'>:\s*(.+?)\s*\[SQL:'
     match = re.search(pattern1, error_msg)
     if match:
         return match.group(1).strip()
     
-    # Pattern 2: Extract between ") " and " [SQL:" (for non-class exception format)
+    # Pola 2: Ekstrak antara ") " dan " [SQL:" (untuk format exception non-class)
     pattern2 = r'\)\s+([^.]+?)\s*\[SQL:'
     match = re.search(pattern2, error_msg)
     if match:
         return match.group(1).strip()
     
-    # Pattern 3: Extract PostgreSQL-style DETAIL or HINT if present
+    # Pola 3: Ekstrak PostgreSQL-style DETAIL atau HINT jika ada
     detail_match = re.search(r'DETAIL:\s*(.+?)(?:\n|$)', error_msg)
     if detail_match:
         return detail_match.group(1).strip()
     
-    # Pattern 4: Common PostgreSQL error patterns at start
+    # Pola 4: Pola error PostgreSQL umum di awal
     pg_patterns = [
         r"column\s+.+?\s+does not exist",
         r"relation\s+.+?\s+does not exist",
@@ -74,19 +74,19 @@ def parse_sqlalchemy_error(error_msg: str) -> str:
         if match:
             return match.group(0).strip()
     
-    # Fallback: if message is too long, truncate and clean
+    # Fallback: jika pesan terlalu panjang, pangkas dan bersihkan
     if len(error_msg) > 200:
-        # Remove common SQLAlchemy boilerplate prefixes
-        cleaned = re.sub(r'^\([^)]+\)\s*', '', error_msg)  # Remove (sqlalchemy...) prefix
-        cleaned = re.sub(r"<class '[^']+'>\s*", '', cleaned)  # Remove <class '...'>
-        cleaned = re.sub(r'\[SQL:.+$', '', cleaned, flags=re.DOTALL)  # Remove [SQL:... onwards
+        # Hapus prefiks boilerplate SQLAlchemy umum
+        cleaned = re.sub(r'^\([^)]+\)\s*', '', error_msg)  # Hapus prefiks (sqlalchemy...)
+        cleaned = re.sub(r"<class '[^']+'>\s*", '', cleaned)  # Hapus <class '...'>
+        cleaned = re.sub(r'\[SQL:.+$', '', cleaned, flags=re.DOTALL)  # Hapus [SQL:... seterusnya
         return cleaned.strip()[:200]
     
     return error_msg
 
 
 def serialize_value(value):
-    """Convert asyncpg/SQLAlchemy types to JSON-serializable types."""
+    """Konversi tipe asyncpg/SQLAlchemy ke tipe JSON-serializable."""
     if value is None:
         return None
     if isinstance(value, Decimal):
@@ -97,7 +97,7 @@ def serialize_value(value):
         return str(value)
     if isinstance(value, bytes):
         return value.hex()
-    # Handle asyncpg.Record or other row-like types that may appear as nested values
+    # Tangani asyncpg.Record atau tipe row-like lain yang mungkin muncul sebagai nilai bersarang
     if hasattr(value, '__class__') and 'asyncpg' in value.__class__.__module__:
         if hasattr(value, '__dict__'):
             return str(value)
@@ -109,8 +109,8 @@ def serialize_value(value):
 
 
 def serialize_row(row):
-    """Convert a row mapping to a JSON-serializable dict."""
-    # Handle both RowMapping objects and asyncpg.Record objects
+    """Konversi row mapping ke dict JSON-serializable."""
+    # Tangani baik objek RowMapping maupun asyncpg.Record
     if hasattr(row, 'items'):
         return {key: serialize_value(value) for key, value in row.items()}
     elif hasattr(row, '__dict__'):
@@ -119,16 +119,16 @@ def serialize_row(row):
         # asyncpg.Record style
         return {field: serialize_value(row[i]) for i, field in enumerate(row._fields)}
     else:
-        # Fallback: convert to dict if possible
+        # Fallback: konversi ke dict jika memungkinkan
         return dict(row)
 
 
 class SandboxExecutionError(Exception):
-    """Custom exception untuk sandbox execution failures"""
+    """Exception kustom untuk kegagalan eksekusi sandbox"""
     pass
 
 '''
-Dedicated engine untuk sandbox
+Engine khusus untuk sandbox
 URL sama tapi diisolasi melalui SET ROLE + SET search_path di level sesi
 '''
 
@@ -137,7 +137,7 @@ _sandbox_engine = None
 
 def _get_sandbox_engine():
     """
-    singleton engine untuk sandbox.
+    Engine singleton untuk sandbox.
     """
     global _sandbox_engine
     if _sandbox_engine is None:
@@ -159,7 +159,7 @@ BANNED_KEYWORDS = [
 def _validate_query(query: str) -> str:
     """
     Tolak query yang mengandung keyword berbahaya.
-    Kembalikan query yang sudah dibersihkan (tanpa trailing semicolon).
+    Kembalikan query yang sudah dibersihkan (tanpa semicolon di akhir).
     """
     query_upper = query.upper()
     for keyword in BANNED_KEYWORDS:
@@ -189,9 +189,9 @@ async def execute_query_in_sandbox(
     engine = _get_sandbox_engine()
 
     try:
-        # begin() membuka koneksi baru + implicit transaction, auto-rollback on error.
+        # begin() membuka koneksi baru + transaksi implisit, auto-rollback saat error.
         async with engine.begin() as conn:
-            # 1. Turunkan hak akses ke sandbox_executor role.
+            # 1. Turunkan hak akses ke role sandbox_executor.
             await conn.execute(text(f"SET ROLE {settings.SANDBOX_DB_ROLE}"))
 
             # 2. Arahkan unqualified table names ke skema sandbox.
@@ -200,7 +200,7 @@ async def execute_query_in_sandbox(
             # 3. Terapkan timeout SEBELUM query dijalankan.
             await conn.execute(text(f"SET LOCAL statement_timeout = {timeout_ms}"))
 
-            # 4. Jalankan query user.
+            # 4. Jalankan query pengguna.
             result = await conn.execute(text(clean_query))
             rows = result.mappings().all()
 
@@ -214,11 +214,11 @@ async def execute_query_in_sandbox(
         raise
     except asyncio.TimeoutError:
         logger.error(f"Query timeout setelah {timeout_ms}ms: {clean_query!r}")
-        raise SandboxExecutionError(f"Query execution timeout ({timeout_ms}ms)")
+        raise SandboxExecutionError(f"Timeout eksekusi query ({timeout_ms}ms)")
     except Exception as e:
-        # Parse SQLAlchemy error to get user-friendly message
+        # Parse error SQLAlchemy untuk mendapatkan pesan user-friendly
         error_msg = parse_sqlalchemy_error(str(e))
-        logger.error(f"Sandbox execution error: {str(e)}")  # Log full error for debugging
+        logger.error(f"Sandbox execution error: {str(e)}")  # Log error lengkap untuk debugging
         raise SandboxExecutionError(error_msg)
 
 
@@ -227,14 +227,14 @@ async def compare_query_results(
     target_query: str,
 ) -> dict:
     """
-    Bandingkan hasil query user dengan target query secara order-insensitive.
+    Bandingkan hasil query pengguna dengan target query secara order-insensitive.
 
     Returns:
         dict dengan format:
         {
             "is_correct": bool,
-            "user_result": dict | None,  # Hasil query user (rows, row_count)
-            "error": str | None           # Error message jika execution gagal
+            "user_result": dict | None,  # Hasil query pengguna (rows, row_count)
+            "error": str | None           # Pesan error jika eksekusi gagal
         }
 
     Mengembalikan result dengan is_correct=False (bukan raise) untuk semua kasus
@@ -252,7 +252,7 @@ async def compare_query_results(
                 "error": None
             }
 
-        # Order-insensitive comparison menggunakan set of frozensets.
+        # Perbandingan order-insensitive menggunakan set of frozensets.
         user_rows = {frozenset(row.items()) for row in user_result["rows"]}
         target_rows = {frozenset(row.items()) for row in target_result["rows"]}
 
@@ -275,5 +275,5 @@ async def compare_query_results(
         return {
             "is_correct": False,
             "user_result": None,
-            "error": "Query execution failed"
+            "error": "Eksekusi query gagal"
         }

@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useUser } from '../store/authStore';
 import { adminService } from '../services/admin';
 import { toast } from '../hooks/toastState';
 import { Modal } from '../components/Modal';
 import type { User, AdminUserCreateRequest, AdminUserUpdateRequest, LogEntry } from '../types';
+import { extractErrorMessage } from '../services/api';
 
 type Tab = 'users' | 'logs';
 
@@ -30,7 +32,10 @@ function UsersTab() {
       const response = await adminService.getUsers(1, 1000, sortby);
       setUsers(response.users);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch users');
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to fetch users';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -47,7 +52,10 @@ function UsersTab() {
       toast.success('User deleted successfully');
       fetchUsers();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete user');
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to delete user';
+      toast.error(message);
     }
   };
 
@@ -211,7 +219,10 @@ function CreateUserModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onCl
       toast.success('User created successfully');
       onSuccess();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create user');
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to create user';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -340,7 +351,10 @@ function EditUserModal({ isOpen, user, onClose, onSuccess }: { isOpen: boolean; 
       toast.success('User updated successfully');
       onSuccess();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update user');
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to update user';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -462,7 +476,10 @@ function LogsTab() {
       setSyslogs(sysRes.logs);
       setAsslogs(assRes.logs);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch logs');
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to fetch logs';
+      toast.error(message);
     } finally {
       setLoading(false);
     }

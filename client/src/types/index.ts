@@ -98,6 +98,7 @@ export interface Question {
   current_difficulty: number;
   attempt_count: number;
   max_attempts: number;
+  topic_tags?: string[];
 }
 
 export interface SessionStatus {

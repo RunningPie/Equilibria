@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -10,6 +11,7 @@ import { Modal } from '../components/Modal';
 import { ReferenceImage } from '../components/ReferenceImage';
 import { QueryResultDisplay } from '../components/QueryResultDisplay';
 import type { Question, SubmitResult, NextResult } from '../types';
+import { extractErrorMessage } from '../services/api';
 
 /**
  * SessionPage
@@ -53,8 +55,11 @@ export function SessionPage() {
         const currentQuestion = await sessionService.getQuestion(sessionId);
         setQuestion(currentQuestion);
         setAttemptCount(currentQuestion.attempt_count);
-      } catch {
-        setError('Failed to load question. Session may have ended.');
+      } catch (error) {
+        const message = axios.isAxiosError(error)
+          ? extractErrorMessage(error)
+          : 'Failed to load question. Session may have ended.';
+        setError(message);
         setSessionEnded(true);
       } finally {
         setIsLoading(false);
@@ -92,8 +97,11 @@ export function SessionPage() {
       if (!result.next_question_available) {
         setSessionComplete(true);
       }
-    } catch {
-      setError('Failed to submit answer. Please try again.');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to submit answer. Please try again.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -159,8 +167,11 @@ export function SessionPage() {
       setSqlQuery('');
       setSubmitResult(null);
       setAttemptCount(0);
-    } catch {
-      setError('Failed to load next question.');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to load next question.';
+      setError(message);
       setSessionEnded(true);
     } finally {
       setIsLoadingNext(false);
@@ -193,8 +204,11 @@ export function SessionPage() {
     try {
       await sessionService.endSession(sessionId);
       navigate('/dashboard', { replace: true });
-    } catch {
-      setError('Failed to end session');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to end session';
+      setError(message);
     }
   }, [sessionId, navigate]);
 
@@ -391,13 +405,21 @@ export function SessionPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Question Panel */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
               <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
                 Difficulty {question.current_difficulty.toFixed(1)}
               </span>
               <span className="text-sm text-gray-500">
                 Attempt {attemptCount} of {question.max_attempts}
               </span>
+              {question.topic_tags?.map((tag) => (
+                <span
+                  key={tag}
+                  className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
 
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
@@ -412,6 +434,12 @@ export function SessionPage() {
                 <li>You have {question.max_attempts} attempts per question</li>
                 <li>Your rating adjusts based on correctness</li>
               </ul>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-amber-800">
+                  <strong>PostgreSQL Syntax Warning:</strong> Use single quotes for string literals (e.g., <code className="bg-amber-100 px-1 rounded">'hello'</code>), not double quotes. Double quotes are for identifiers (column/table names).
+                </p>
+              </div>
               
               <ReferenceImage
                 src="/relational_diagram.png"

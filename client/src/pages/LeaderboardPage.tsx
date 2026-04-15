@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 import { leaderboardService } from '../services/leaderboard';
 import type { LeaderboardEntry } from '../types';
+import { extractErrorMessage } from '../services/api';
 
 export function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -17,8 +19,11 @@ export function LeaderboardPage() {
       const data = await leaderboardService.getLeaderboard(limit, offset);
       setEntries(data.entries);
       setTotal(data.total);
-    } catch {
-      setError('Failed to load leaderboard');
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? extractErrorMessage(error)
+        : 'Failed to load leaderboard';
+      setError(message);
     } finally {
       setIsLoading(false);
     }

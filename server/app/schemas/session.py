@@ -52,6 +52,7 @@ class QuestionResponse(BaseModel):
     current_difficulty: float = Field(..., description="Difficulty soal saat ini")
     attempt_count: int = Field(..., description="Jumlah attempt untuk soal ini")
     max_attempts: int = Field(..., description="Maksimal attempt (3)")
+    topic_tags: Optional[list[str]] = Field(None, description="Tag topik soal (e.g., ['JOIN', 'GROUP BY'])")
     
     model_config = ConfigDict(
         from_attributes=True,
