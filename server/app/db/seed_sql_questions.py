@@ -324,7 +324,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH02-Q002",
         "module_id": "CH02",
-        "content": "Bisa gak bikinin daftar jumlah mahasiswa per departemen? Biar kita tau mana departemen yang paling rame.",
+        "content": "Bisa gak bikinin daftar jumlah mahasiswa (alias jumlah_mhs) per departemen? Biar kita tau mana departemen yang favorit.",
         "target_query": "SELECT dept_name, COUNT(*) AS jumlah_mhs FROM student GROUP BY dept_name;",
         "initial_difficulty": 1215.0,
         "current_difficulty": 1215.0,
@@ -334,8 +334,8 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH02-Q003",
         "module_id": "CH02",
-        "content": "Dosen-dosen penasaran nih, berapa sih rata-rata total SKS mahasiswa di tiap departemen? Coba liatin dong.",
-        "target_query": "SELECT dept_name, AVG(tot_cred) AS rata_sks FROM student GROUP BY dept_name;",
+        "content": "Dosen-dosen penasaran nih, berapa sih rata-rata total SKS mahasiswa di tiap departemen? Coba kasih liat, dan ga perlu pake alias ya! :D",
+        "target_query": "SELECT dept_name, AVG(tot_cred) FROM student GROUP BY dept_name;",
         "initial_difficulty": 1230.0,
         "current_difficulty": 1230.0,
         "topic_tags": ["AVG", "GROUP BY"],
@@ -344,7 +344,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH02-Q004",
         "module_id": "CH02",
-        "content": "Kita mau cari bintang kampus! Coba cari tahu berapa total SKS tertinggi di tiap-tiap departemen.",
+        "content": "Kita mau cari bintang kampus! Coba cari tahu berapa total SKS tertinggi (alias max_sks) di tiap-tiap departemen.",
         "target_query": "SELECT dept_name, MAX(tot_cred) AS max_sks FROM student GROUP BY dept_name;",
         "initial_difficulty": 1245.0,
         "current_difficulty": 1245.0,
@@ -365,7 +365,7 @@ QUESTIONS_DATA = [
         "question_id": "CH02-Q006",
         "module_id": "CH02",
         "content": "Tolong rekap dong total SKS yang ditawarkan di masing-masing departemen.",
-        "target_query": "SELECT dept_name, SUM(credits) AS total_sks FROM course GROUP BY dept_name;",
+        "target_query": "SELECT dept_name, SUM(credits) FROM course GROUP BY dept_name;",
         "initial_difficulty": 1275.0,
         "current_difficulty": 1275.0,
         "topic_tags": ["SUM", "GROUP BY"],
@@ -374,7 +374,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH02-Q007",
         "module_id": "CH02",
-        "content": "Berapa banyak sih mata kuliah yang dibuka tiap semester per tahunnya? Biar kita bisa liat trennya.",
+        "content": "Berapa banyak sih mata kuliah (alias jumlah_course) yang dibuka tiap semester per tahunnya? Kita pengen lihat nih trennya.",
         "target_query": "SELECT semester, year, COUNT(*) AS jumlah_course FROM section GROUP BY semester, year;",
         "initial_difficulty": 1290.0,
         "current_difficulty": 1290.0,
@@ -394,7 +394,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH02-Q009",
         "module_id": "CH02",
-        "content": "Mana aja nih departemen yang total SKS mata kuliahnya udah lebih dari 10? Kasih tau ya.",
+        "content": "Mana aja nih departemen yang total SKS mata kuliahnya udah lebih dari 10?",
         "target_query": "SELECT dept_name, SUM(credits) FROM course GROUP BY dept_name HAVING SUM(credits) > 10;",
         "initial_difficulty": 1320.0,
         "current_difficulty": 1320.0,
@@ -414,8 +414,8 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH02-Q011",
         "module_id": "CH02",
-        "content": "Cariin jumlah dosen di tiap departemen, terus urutin dari yang paling banyak personilnya.",
-        "target_query": "SELECT dept_name, COUNT(ID) AS jumlah_dosen FROM instructor GROUP BY dept_name ORDER BY COUNT(ID) DESC;",
+        "content": "Cariin jumlah dosen di tiap departemen, terus urutin dari yang paling banyak personilnya. Ga perlu pake alias ya! :D",
+        "target_query": "SELECT dept_name, COUNT(ID) FROM instructor GROUP BY dept_name ORDER BY COUNT(ID) DESC;",
         "initial_difficulty": 1350.0,
         "current_difficulty": 1350.0,
         "topic_tags": ["COUNT", "GROUP BY", "ORDER BY"],
@@ -524,7 +524,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH02-Q022",
         "module_id": "CH02",
-        "content": "Siapa 3 departemen teratas yang punya rata-rata total SKS mahasiswa paling tinggi?",
+        "content": "Apa aja nama 3 departemen teratas yang punya rata-rata total SKS (alias avg_cred) mahasiswa paling tinggi?",
         "target_query": "SELECT dept_name, AVG(tot_cred) AS avg_cred FROM student GROUP BY dept_name ORDER BY avg_cred DESC LIMIT 3;",
         "initial_difficulty": 1515.0,
         "current_difficulty": 1515.0,
@@ -576,7 +576,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q002",
         "module_id": "CH03",
-        "content": "Coba cari tahu departemen mana aja yang ternyata belum punya dosen sama sekali. Pakai filter NULL ya!",
+        "content": "Coba cari tahu departemen mana aja yang ternyata belum punya dosen sama sekali. Pakai filter NULL ya! Ga perlu pake alias ya! :D",
         "target_query": "SELECT d.dept_name, COUNT(i.ID) FROM department d LEFT JOIN instructor i ON d.dept_name = i.dept_name GROUP BY d.dept_name HAVING COUNT(i.ID) = 0;",
         "initial_difficulty": 1420.0,
         "current_difficulty": 1420.0,
@@ -596,7 +596,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q004",
         "module_id": "CH03",
-        "content": "Cari mahasiswa yang ngambil 'Intro. to Computer Science' tapi total SKSnya masih di bawah 60. Mau kita kasih bimbingan tambahan.",
+        "content": "Cari mahasiswa yang ngambil 'Intro. to Computer Science' tapi total SKSnya masih di bawah 60. Mau kita kasih bimbingan tambahan. Ga perlu pake alias ya! :D",
         "target_query": "SELECT s.ID, s.name, s.tot_cred, s.dept_name FROM student s JOIN takes t ON s.ID = t.ID JOIN course c ON t.course_id = c.course_id WHERE c.title = 'Intro. to Computer Science' AND s.tot_cred < 60;",
         "initial_difficulty": 1460.0,
         "current_difficulty": 1460.0,
@@ -626,7 +626,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q007",
         "module_id": "CH03",
-        "content": "Siapa aja mahasiswa yang dosen pembimbingnya berasal dari departemen 'Comp. Sci.'?",
+        "content": "Siapa aja mahasiswa yang dosen pembimbingnya berasal dari departemen 'Comp. Sci.'? Ga perlu pake alias ya! :D",
         "target_query": "SELECT DISTINCT s.ID, s.name FROM student s JOIN advisor a ON s.ID = a.s_ID WHERE a.i_ID IN (SELECT ID FROM instructor WHERE dept_name = 'Comp. Sci.');",
         "initial_difficulty": 1520.0,
         "current_difficulty": 1520.0,
@@ -646,7 +646,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q009",
         "module_id": "CH03",
-        "content": "Cari dosen yang gajinya lebih tinggi dibandingkan rata-rata gaji di departemennya sendiri. Sultan nih!",
+        "content": "Cari dosen yang gajinya lebih tinggi dibandingkan rata-rata gaji di departemennya sendiri. Sultan nih! Ga perlu pake alias ya! :D",
         "target_query": "SELECT * FROM instructor i WHERE salary > (SELECT AVG(salary) FROM instructor WHERE dept_name = i.dept_name);",
         "initial_difficulty": 1560.0,
         "current_difficulty": 1560.0,
@@ -666,7 +666,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q011",
         "module_id": "CH03",
-        "content": "Tolong gabungin daftar nama mahasiswa dari jurusan 'Physics' sama jurusan 'Elec. Eng.' jadi satu list.",
+        "content": "Tolong gabungin daftar nama mahasiswa dari jurusan 'Physics' sama jurusan 'Elec. Eng.' jadi satu list. Ga perlu pake alias ya! :D",
         "target_query": "(SELECT name FROM student WHERE dept_name = 'Physics') UNION (SELECT name FROM student WHERE dept_name = 'Elec. Eng.');",
         "initial_difficulty": 1600.0,
         "current_difficulty": 1600.0,
@@ -686,7 +686,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q013",
         "module_id": "CH03",
-        "content": "Siapa sih mahasiswa rajin yang ngambil mata kuliah 'CS-101' sekaligus 'CS-201'?",
+        "content": "Siapa sih mahasiswa rajin yang ngambil mata kuliah 'CS-101' sekaligus 'CS-201'? Ga perlu pake alias ya! :D",
         "target_query": "(SELECT ID FROM takes WHERE course_id = 'CS-101') INTERSECT (SELECT ID FROM takes WHERE course_id = 'CS-201');",
         "initial_difficulty": 1640.0,
         "current_difficulty": 1640.0,
@@ -696,7 +696,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q014",
         "module_id": "CH03",
-        "content": "Coba hitung dulu rata-rata budget per gedung, terus tampilin gedung mana yang rata-ratanya di atas rata-rata budget kampus secara keseluruhan.",
+        "content": "Coba hitung dulu rata-rata budget (alias avg_budget) per gedung, terus tampilin gedung mana yang rata-ratanya di atas rata-rata budget kampus secara keseluruhan.",
         "target_query": "WITH building_avg AS (SELECT building, AVG(budget) AS avg_budget FROM department GROUP BY building) SELECT * FROM building_avg WHERE avg_budget > (SELECT AVG(budget) FROM department);",
         "initial_difficulty": 1660.0,
         "current_difficulty": 1660.0,
@@ -706,7 +706,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q015",
         "module_id": "CH03",
-        "content": "Tolong buatin ranking mahasiswa berdasarkan total SKS di masing-masing departemennya.",
+        "content": "Tolong buatin ranking mahasiswa berdasarkan total SKS di masing-masing departemennya, dan kolom rankingnya alias 'rank' ya!",
         "target_query": "SELECT name, dept_name, tot_cred, RANK() OVER(PARTITION BY dept_name ORDER BY tot_cred DESC) AS rank FROM student;",
         "initial_difficulty": 1680.0,
         "current_difficulty": 1680.0,
@@ -726,7 +726,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q017",
         "module_id": "CH03",
-        "content": "TU Akademik sedang mensurvei kelas apa saja yang perlu ditutup pada masa PRS. Coba cari data kelas di tahun 2008 yang memiliki kurang dari 5 mahasiswa. Tampilkan course_id, sec_id, dan jumlah mahasiswanya.",
+        "content": "TU Akademik sedang mensurvei kelas apa saja yang perlu ditutup pada masa PRS. Coba cari data kelas di tahun 2008 yang memiliki kurang dari 5 mahasiswa. Tampilkan course_id, sec_id, dan kolom jumlah mahasiswanya alias 'jumlah_mhs' ya!",
         "target_query": "SELECT course_id, sec_id, COUNT(ID) AS jumlah_mhs FROM takes WHERE year = 2008 GROUP BY course_id, sec_id HAVING COUNT(ID) < 5;",
         "initial_difficulty": 1715.0,
         "current_difficulty": 1715.0,
@@ -746,7 +746,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q019",
         "module_id": "CH03",
-        "content": "Gunakan CTE (Common Table Expression) untuk menghitung jumlah mahasiswa per departemen, lalu tampilkan departemen yang populasinya di atas rata-rata populasi departemen lain",
+        "content": "Gunakan CTE (Common Table Expression) dengan alias 'jml' untuk menghitung jumlah mahasiswa per departemen, lalu tampilkan departemen yang populasinya di atas rata-rata populasi departemen lain",
         "target_query": "WITH dept_counts AS (SELECT dept_name, COUNT(*) AS jml FROM student GROUP BY dept_name) SELECT * FROM dept_counts WHERE jml > (SELECT AVG(jml) FROM dept_counts);",
         "initial_difficulty": 1745.0,
         "current_difficulty": 1745.0,
@@ -756,7 +756,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q020",
         "module_id": "CH03",
-        "content": "Gunakan CTE (Common Table Expression) untuk menghitung jumlah mahasiswa per departemen, lalu tampilkan departemen yang mahasiswanya lebih dari 20 orang.",
+        "content": "Gunakan CTE dengan alias 'jml' untuk menghitung jumlah mahasiswa per departemen, lalu tampilkan departemen yang mahasiswanya lebih dari 20 orang.",
         "target_query": "WITH dept_counts AS (SELECT dept_name, COUNT(*) AS jml FROM student GROUP BY dept_name) SELECT * FROM dept_counts WHERE jml > 20;",
         "initial_difficulty": 1760.0,
         "current_difficulty": 1760.0,
@@ -766,7 +766,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q021",
         "module_id": "CH03",
-        "content": "Coba klasifikasi mata kuliah berdasarkan nilai rata-rata mahasiswanya: >= 'B' itu Gampang, antara 'C' dan 'B' itu Sedang, sisanya Susah.",
+        "content": "Coba klasifikasi mata kuliah berdasarkan nilai rata-rata mahasiswanya dengan alias kolom: avg_grade (rata-rata nilai) dan difficulty ('Easy' kalau >= 'B', 'Medium' antara 'C' dan 'B', 'Hard' sisanya).",
         "target_query": "SELECT c.title, AVG(t.grade) AS avg_grade, CASE WHEN AVG(t.grade) >= 'B' THEN 'Easy' WHEN AVG(t.grade) BETWEEN 'C' AND 'B' THEN 'Medium' ELSE 'Hard' END AS difficulty FROM course c JOIN takes t ON c.course_id = t.course_id GROUP BY c.title;",
         "initial_difficulty": 1770.0,
         "current_difficulty": 1770.0,
@@ -776,7 +776,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q022",
         "module_id": "CH03",
-        "content": "Tampilkan judul mata kuliah, terus di kolom sebelahnya hitung berapa banyak mahasiswa yang daftar di tiap mata kuliah itu.",
+        "content": "Tampilkan judul mata kuliah, terus di kolom sebelahnya alias 'enrolled' hitung berapa banyak mahasiswa yang daftar di tiap mata kuliah itu.",
         "target_query": "SELECT c.title, (SELECT COUNT(*) FROM takes t WHERE t.course_id = c.course_id) AS enrolled FROM course c;",
         "initial_difficulty": 1775.0,
         "current_difficulty": 1775.0,
@@ -796,7 +796,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q024",
         "module_id": "CH03",
-        "content": "Tampilkan nama gedung, total budget fakultas yang menggunakan gedung tersebut, dan banyaknya dosen (unik) yang berkantor di gedung tersebut. Tapi hanya untuk fakultas dengan total budget > 50 ribu",
+        "content": "Tampilkan nama gedung, total budget fakultas (alias total_bud), dan banyaknya dosen unik (alias jml_dosen) yang berkantor di gedung tersebut. Tapi hanya untuk fakultas dengan total budget > 50 ribu",
         "target_query": "SELECT d.building, SUM(d.budget) AS total_bud, COUNT(DISTINCT i.ID) AS jml_dosen FROM department d LEFT JOIN instructor i ON d.dept_name = i.dept_name GROUP BY d.building HAVING SUM(d.budget) > 50000;",
         "initial_difficulty": 1785.0,
         "current_difficulty": 1785.0,
@@ -806,7 +806,7 @@ QUESTIONS_DATA = [
     {
         "question_id": "CH03-Q025",
         "module_id": "CH03",
-        "content": "Tolong list 10 mahasiswa 'Senior' (SKS >= 90) dengan SKS tertinggi, dan kasih status 'Excellent' kalau SKSnya sudah 120 ke atas.",
+        "content": "Tolong list 10 mahasiswa 'Senior' (SKS >= 90) dengan SKS tertinggi, dan kasih kolom status 'Excellent' kalau SKSnya sudah 120 ke atas, atau 'Good' kalau belum.",
         "target_query": "WITH high_cred_students AS (SELECT * FROM student WHERE tot_cred >= 90) SELECT h.name, h.dept_name, h.tot_cred, CASE WHEN h.tot_cred >= 120 THEN 'Excellent' ELSE 'Good' END AS status FROM high_cred_students h ORDER BY h.tot_cred DESC LIMIT 10;",
         "initial_difficulty": 1780.0,
         "current_difficulty": 1780.0,
