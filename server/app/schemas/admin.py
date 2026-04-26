@@ -38,8 +38,8 @@ class AdminUserUpdate(BaseModel):
     group_assignment: Optional[str] = Field(None, max_length=1, pattern="^[AB]$", example="A")
     status: Optional[str] = Field(None, max_length=20, example="ACTIVE")
     is_admin: Optional[bool] = Field(None, example=True)
-    theta_individu: Optional[float] = Field(None, ge=0, le=2000, example=1400.0)
-    theta_social: Optional[float] = Field(None, ge=0, le=2000, example=1350.0)
+    theta_individu: Optional[float] = Field(None, ge=1000, le=1800, example=1400.0)
+    theta_social: Optional[float] = Field(None, ge=1000, le=1800, example=1350.0)
     
     model_config = ConfigDict(
         json_schema_extra={

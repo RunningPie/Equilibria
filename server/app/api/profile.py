@@ -28,8 +28,8 @@ async def get_profile_stats(
     Ambil profil statistik untuk user saat ini.
     
     Returns:
-    - theta_individu: Elo rating individu [0, 2000]
-    - theta_social: Elo rating sosial [0, 2000] 
+    - theta_individu: Elo rating individu [1000, 1800]
+    - theta_social: Elo rating sosial [1000, 1800] 
     - theta_display: Weighted average (0.8 × θ_individu) + (0.2 × θ_social)
     """
     logger.info(

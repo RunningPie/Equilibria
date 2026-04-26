@@ -107,8 +107,8 @@ async def create_test_users(session: AsyncSession, target_user: User):
         sign = 1 if i % 2 == 0 else -1
         theta = target_theta + (sign * offset)
         
-        # Clamp to valid range [0, 2000]
-        theta = max(0.0, min(2000.0, theta))
+        # Clamp to valid range [1000, 1800]
+        theta = max(1000.0, min(1800.0, theta))
         
         nim = generate_unique_nim(base_nim, user_counter)
         user = User(
@@ -140,8 +140,8 @@ async def create_test_users(session: AsyncSession, target_user: User):
         sign = -1 if i % 2 == 0 else 1
         theta = target_theta + (sign * offset)
         
-        # Clamp to valid range [0, 2000]
-        theta = max(0.0, min(2000.0, theta))
+        # Clamp to valid range [1000, 1800]
+        theta = max(1000.0, min(1800.0, theta))
         
         nim = generate_unique_nim(base_nim, user_counter)
         user = User(

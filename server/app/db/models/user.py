@@ -48,14 +48,14 @@ class User(Base):
         nullable=False
     )
 
-    # Elo Rating Individual - Skala [0, 2000] mulai dari 1300
+    # Elo Rating Individual - Skala [1000, 1800] mulai dari 1300
     theta_individu: Mapped[float] = mapped_column(
         Float,
         default=1300.0,
         nullable=False
     )
 
-    # Social Elo Rating - Skala [0, 2000] mulai dari 1300
+    # Social Elo Rating - Skala [1000, 1800] mulai dari 1300
     theta_social: Mapped[float] = mapped_column(
         Float,
         default=1300.0,
@@ -167,11 +167,11 @@ class User(Base):
     # Batasan Tabel - Pastikan theta dalam rentang valid per Tech Specs v4.2
     __table_args__ = (
         CheckConstraint(
-            'theta_individu >= 0 AND theta_individu <= 2000',
+            'theta_individu >= 1000 AND theta_individu <= 1800',
             name='check_theta_individu_range'
         ),
         CheckConstraint(
-            'theta_social >= 0 AND theta_social <= 2000',
+            'theta_social >= 1000 AND theta_social <= 1800',
             name='check_theta_social_range'
         ),
         CheckConstraint(

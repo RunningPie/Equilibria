@@ -9,8 +9,8 @@ from app.db.models import AssessmentLog
 
 # === Konstanta sesuai Vesin et al. (2022) - Tech Specs v4.2 ===
 BASE_RATING = 1300.0  # Rating awal semua siswa
-RATING_MIN = 0
-RATING_MAX = 2000.0  
+RATING_MIN = 1000.0
+RATING_MAX = 1800.0  
 K_FACTORS = {
     'novice': 30,    # 0-9 attempts
     'intermediate': 20,  # 10-24 attempts
@@ -22,7 +22,7 @@ DEFAULT_TIME_LIMIT = 300000  # di = 5 menit dalam milidetik
 
 def calculate_initial_theta(correct_count: int, total_questions: int = 5) -> float:
     """
-    Kalibrasi pre-test untuk skala [0, 2000] dengan baseline 1300
+    Kalibrasi pre-test untuk skala [1000, 1800] dengan baseline 1300
     Memetakan 0-5 benar ke rentang [1100, 1500] di sekitar baseline 1300
     
     Input:

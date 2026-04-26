@@ -2,7 +2,7 @@
 Unit Tests untuk ELO Engine - Kepatuhan Tech Specs v4.2
 
 Tes memverifikasi:
-1. Skala rating [0, 2000] dengan baseline 1300
+1. Skala rating [1000, 1800] dengan baseline 1300
 2. Vesin Eq. 1 & 2 (Pembaruan Rating)
 3. Vesin Eq. 4 (Skor yang Diharapkan)
 4. Vesin Eq. 3 yang Disederhanakan (Success Rate Biner)
@@ -25,7 +25,7 @@ from app.core.elo_engine import (
 
 
 class TestInitialThetaCalculation:
-    """Tes kalibrasi pre-test untuk skala [0, 2000] dengan baseline 1300"""
+    """Tes kalibrasi pre-test untuk skala [1000, 1800] dengan baseline 1300"""
     
     def test_perfect_score(self):
         """5/5 benar seharusnya dipetakan ke rentang atas (1500)"""
@@ -72,11 +72,11 @@ class TestExpectedScoreCalculation:
     def test_extreme_difference(self):
         """Test extreme rating differences"""
         # Very high rating vs very low difficulty
-        prob = calculate_expected_score(1900.0, 100.0)
+        prob = calculate_expected_score(1800.0, 1000.0)
         assert prob > 0.9, f"Expected >0.9, got {prob}"
         
         # Very low rating vs very high difficulty  
-        prob = calculate_expected_score(100.0, 1900.0)
+        prob = calculate_expected_score(1000.0, 1800.0)
         assert prob < 0.1, f"Expected <0.1, got {prob}"
 
 
@@ -248,7 +248,7 @@ class TestEloRatingUpdates:
         assert abs(new_difficulty - 1300.0) < 50.0, f"Equal performance should cause minimal difficulty change: {1300.0} -> {new_difficulty}"
     
     def test_rating_bounds(self):
-        """Updated ratings should stay within [0, 2000] bounds"""
+        """Updated ratings should stay within [1000, 1800] bounds"""
         # Test upper bound
         new_student, new_difficulty = update_elo_ratings(1900.0, 100.0, 1.0, 30)
         assert new_student <= RATING_MAX, f"Student theta {new_student} exceeds max {RATING_MAX}"

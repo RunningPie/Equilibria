@@ -14,8 +14,8 @@ from app.db.models import User, PeerSession
 # Social Elo Constants (Section 6.5)
 K_SOCIAL = 30  # Same as K_individu novice phase
 EXPECTED_SCORE_SOCIAL = 0.5  # Neutral baseline - "average" reviewer expected score
-RATING_MIN = 0.0
-RATING_MAX = 2000.0
+RATING_MIN = 1000.0
+RATING_MAX = 1800.0
 
 
 def update_theta_social(
@@ -30,7 +30,7 @@ def update_theta_social(
     - We_social = 0.5 (neutral baseline)
     - K_social = 30 (novice phase)
     - delta = K_social * (W_social - We_social)  # range: [-15, +15]
-    - new_theta_social = CLAMP(reviewer.theta_social + delta, 0, 2000)
+    - new_theta_social = CLAMP(reviewer.theta_social + delta, 1000, 1800)
 
     Args:
         reviewer: Reviewer User yang theta_social-nya akan diupdate
