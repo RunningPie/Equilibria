@@ -54,9 +54,9 @@ class Settings(BaseSettings):
     
     # ==== Pengaturan Logging ====
     LOG_LEVEL: str = "INFO"
-    LOG_DIR: str = "/app/logs"
-    SYSLOG_DIR: str = "/app/logs/syslogs"
-    ASSLOG_DIR: str = "/app/logs/asslogs"
+    LOG_DIR: str = "logs"
+    SYSLOG_DIR: str = "logs/syslogs"
+    ASSLOG_DIR: str = "logs/asslogs"
     
     class Config:
         env_file = ".env"

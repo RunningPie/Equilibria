@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 from starlette.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
 
@@ -75,7 +75,7 @@ async def start_pretest(
             current_question_index=0,
             total_questions=5,
             answers={},
-            started_at=datetime.now()
+            started_at=datetime.now(timezone.utc)
         )
         db.add(new_pretest_session)
         await db.commit()
@@ -233,7 +233,7 @@ async def submit_pretest_answer(
             
             # update session
             pretest_session.current_theta = initial_theta
-            pretest_session.completed_at = datetime.now()
+            pretest_session.completed_at = datetime.now(timezone.utc)
             
             # Update profil pengguna
             user = await db.execute(

@@ -10,9 +10,10 @@ import logging
 import sys
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from typing import Optional
+from app.core.config import settings
 
 
 def _get_log_file_path(log_dir: Path, prefix: str, max_bytes: int, max_age_days: int = 1) -> Path:
@@ -22,7 +23,7 @@ def _get_log_file_path(log_dir: Path, prefix: str, max_bytes: int, max_age_days:
     - File age < max_age_days
     Otherwise create a new file with current timestamp.
     """
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     current_date = now.date()
     
     # Look for existing log files matching pattern: {prefix}_YYYYMMDD_HHMMSS.json
@@ -37,7 +38,7 @@ def _get_log_file_path(log_dir: Path, prefix: str, max_bytes: int, max_age_days:
                 continue
             
             # Check file age (parse from filename or use mtime)
-            file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+            file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
             file_date = file_mtime.date()
             age_days = (current_date - file_date).days
             
@@ -58,8 +59,10 @@ class JSONFormatter(logging.Formatter):
     """
     
     def format(self, record: logging.LogRecord) -> str:
+        # Use a clean ISO format with Z for UTC
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
         log_data = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": timestamp,
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -94,37 +97,31 @@ class JSONFormatter(logging.Formatter):
 
 
 def setup_logging(
-    log_dir: str = "/app/logs",
-    syslog_dir: str = "/app/logs/syslogs",
-    asslog_dir: str = "/app/logs/asslogs",
+    log_dir: str = None,
+    syslog_dir: str = None,
+    asslog_dir: str = None,
     max_bytes: int = 10 * 1024 * 1024,  # 10MB
     backup_count: int = 5,
-    log_level: str = "INFO"
+    log_level: str = None
 ) -> tuple[logging.Logger, logging.Logger]:
     """
     Setup sistem dual logging dengan auto-rotation.
-    
-    Args:
-        log_dir: Base log directory
-        syslog_dir: System logs directory
-        asslog_dir: Assessment logs directory
-        max_bytes: Max file size sebelum rotation (default 10MB)
-        backup_count: Jumlah backup files yang disimpan
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-    
-    Returns:
-        Tuple of (system_logger, assessment_logger)
     """
+    # Use settings if not provided
+    log_dir = log_dir or settings.LOG_DIR
+    syslog_dir = syslog_dir or settings.SYSLOG_DIR
+    asslog_dir = asslog_dir or settings.ASSLOG_DIR
+    log_level = log_level or settings.LOG_LEVEL
     
     # Buat directories
-    syslog_path = Path(syslog_dir)
-    asslog_path = Path(asslog_dir)
+    syslog_path = Path(syslog_dir).resolve()
+    asslog_path = Path(asslog_dir).resolve()
     syslog_path.mkdir(parents=True, exist_ok=True)
     asslog_path.mkdir(parents=True, exist_ok=True)
     
     # Get or create log file paths (reuse if <10MB and <1 day old)
-    syslog_file = _get_log_file_path(syslog_path, "syslog", max_bytes, max_age_days=1)
-    asslog_file = _get_log_file_path(asslog_path, "asslog", max_bytes, max_age_days=1)
+    syslog_file = _get_log_file_path(syslog_path, "syslogs", max_bytes, max_age_days=1)
+    asslog_file = _get_log_file_path(asslog_path, "asslogs", max_bytes, max_age_days=1)
     
     # ===========================================
     # SYSTEM LOGGER

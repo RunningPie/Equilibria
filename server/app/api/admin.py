@@ -4,7 +4,7 @@ Berisi operasi CRUD user dan akses log
 """
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from uuid import UUID
 
@@ -342,7 +342,7 @@ async def delete_user(
             )
         
         # Soft delete: tandai sebagai dihapus dan anonimkan PII
-        deleted_at = datetime.now()
+        deleted_at = datetime.now(timezone.utc)
         user.is_deleted = True
         user.deleted_at = deleted_at
         # Anonimkan NIM: 'del_' (4 karakter) + 16 karakter pertama UUID = maksimal 20 karakter

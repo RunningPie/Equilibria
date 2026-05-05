@@ -2,7 +2,7 @@ import sys
 import uuid
 import asyncio
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -128,7 +128,7 @@ async def seed_assessment_logs(user_id: str, mode: str):
             current_theta = base_theta
             
             # Create timestamps (recent, going backwards)
-            base_time = datetime.utcnow()
+            base_time = datetime.now(timezone.utc)
             
             for i, delta in enumerate(theta_deltas):
                 theta_before = current_theta

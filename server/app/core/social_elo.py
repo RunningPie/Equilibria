@@ -5,7 +5,7 @@ Implementasi Social Elo rating update untuk reviewers berdasarkan feedback ratin
 theta_social mengukur kualitas reviewer dan diupdate setelah requester rate feedback.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Tuple
 
 from app.db.models import User, PeerSession
@@ -65,6 +65,6 @@ def update_theta_social(
     peer_session.theta_social_before = theta_social_before
     peer_session.theta_social_after = new_theta_social
     peer_session.status = "COMPLETED"
-    peer_session.completed_at = datetime.utcnow()
+    peer_session.completed_at = datetime.now(timezone.utc)
 
     return theta_social_before, new_theta_social

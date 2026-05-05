@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import NoResultFound, IntegrityError
 from sqlalchemy import text
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from starlette.status import (
@@ -138,7 +138,7 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
                     
                     if prev_progress and not prev_progress.is_completed:
                         prev_progress.is_completed = True
-                        prev_progress.completed_at = datetime.now()
+                        prev_progress.completed_at = datetime.now(timezone.utc)
                         db.add(prev_progress)
                         
                         system_logger.info(
@@ -253,7 +253,7 @@ async def start_session(
             user_id=current_user.user_id,
             module_id=session_request.module_id,
             status="ACTIVE",
-            current_question_start_time=datetime.utcnow()  # Mulai hitung waktu
+            current_question_start_time=datetime.now(timezone.utc)  # Mulai hitung waktu
         )
         
         db.add(new_session)
@@ -388,7 +388,7 @@ async def end_session(
         
         # Update session status
         session.status = "COMPLETED"
-        session.ended_at = datetime.utcnow()
+        session.ended_at = datetime.now(timezone.utc)
         
         await db.commit()
         
@@ -567,7 +567,7 @@ async def get_current_question(
         if not selected_question:
             # Tidak ada soal tersedia, selesaikan session
             session.status = "COMPLETED"
-            session.ended_at = datetime.utcnow()
+            session.ended_at = datetime.now(timezone.utc)
             await db.commit()
             
             return jsend_fail(
@@ -578,7 +578,7 @@ async def get_current_question(
         # Update session with the new question
         session.current_question_id = selected_question.question_id
         session.current_question_attempt_count = 0
-        session.current_question_start_time = datetime.utcnow()  # Catat waktu mulai
+        session.current_question_start_time = datetime.now(timezone.utc)  # Catat waktu mulai
         
         # Add to served_ids to prevent it from being picked again in /next or submit_answer checks
         current_served = list(session.question_ids_served) if session.question_ids_served else []
@@ -708,7 +708,7 @@ async def submit_answer(
         # Hitung thinking time (ms)
         thinking_time_ms = 0
         if session.current_question_start_time:
-            delta = datetime.utcnow() - session.current_question_start_time
+            delta = datetime.now(timezone.utc) - session.current_question_start_time
             thinking_time_ms = int(delta.total_seconds() * 1000)
 
         # Tentukan apakah ini final attempt
@@ -959,7 +959,7 @@ async def get_next_question_endpoint(
         if next_module_unlocked:
             # End session as user has unlocked the next chapter
             session.status = "COMPLETED"
-            session.ended_at = datetime.utcnow()
+            session.ended_at = datetime.now(timezone.utc)
             await db.commit()
             
             system_logger.info(
@@ -1177,7 +1177,7 @@ async def get_next_question_endpoint(
         if not selected_question:
             # Tidak ada soal tersedia, selesaikan session
             session.status = "COMPLETED"
-            session.ended_at = datetime.utcnow()
+            session.ended_at = datetime.now(timezone.utc)
             await db.commit()
             
             return jsend_fail(
@@ -1191,7 +1191,7 @@ async def get_next_question_endpoint(
         session.question_ids_served = current_served
         session.current_question_id = selected_question.question_id
         session.current_question_attempt_count = 0
-        session.current_question_start_time = datetime.utcnow()  # Reset timer buat soal baru
+        session.current_question_start_time = datetime.now(timezone.utc)  # Reset timer buat soal baru
         
         # Hitung jumlah soal yang sudah di-serve dan total tersedia
         questions_served = len(current_served)

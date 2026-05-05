@@ -6,7 +6,7 @@ Ini core modul untuk:
 '''
 
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt
 from typing import Optional
 from app.core.config import settings
@@ -42,7 +42,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     Buat JWT access token dengan payload data dan expiration
     '''
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 60)))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 60)))
     to_encode.update({"exp": expire})
     
     encoded_jwt = jwt.encode(
