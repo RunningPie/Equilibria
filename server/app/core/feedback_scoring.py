@@ -1,128 +1,95 @@
 """
-Modul NLP Feedback Quality Scoring - Tech Specs v4.2 Bagian 6.6 (Revisi)
+Modul NLP Feedback Quality Scoring - Word-Level Semantic Max with Domain Filter
 
-Implementasi weighted keyword matching untuk assessment kualitas peer review feedback.
-Berdasarkan Kerman et al. (2024) cognitive features dan ACM Bloom's for Computing (2023).
+Pipeline:
+1. Gibberish & Length Check (Prefilter)
+2. Domain Relevance Check (Sentence-level)
+3. Word-Level Semantic Max (Feature Scoring)
 """
 
-from typing import List
+import re
+from typing import List, Dict
+import numpy as np
+from fastembed import TextEmbedding
 
+# 1. Model Initialization
+MODEL_NAME = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'
+model = TextEmbedding(model_name=MODEL_NAME)
 
-# Bagian 6.6: NLP Feedback Quality Scoring
+# 2. Semantic Anchors
+ANCHOR_DATA = {
+    "identification": ["salah", "error", "bug", "mistake", "masalah"],
+    "justification": ["karena", "sebab", "alasan", "because", "reason"],
+    "constructive": ["sebaiknya", "perbaiki", "saran", "should", "fix", "suggest"],
+    "blooms_high": ["analisis", "optimasi", "refactor", "analyze", "optimize"],
+    # NEW: Domain anchors to filter out irrelevant talk (nasi goreng, etc.)
+    "domain_relevance": [
+        "technical programming feedback", "code review comment", 
+        "sql query feedback", "software implementation review",
+        "komentar review kode", "masukan teknis pemrograman"
+    ]
+}
 
-# 1. Identification: Problem localization & error detection
-# Sumber: Kerman et al. (2024) - Cognitive Identification Feature
-IDENTIFICATION_KEYWORDS = [
-    # Indonesian
-    'error', 'salah', 'bug', 'masalah', 'issue', 'kurang', 'hilang',
-    'tidak muncul', 'tidak berjalan', 'kosong', 'null', 'gagal',
-    'exception', 'typo', 'keliru', 'cacat', 'anomali',
-    # English
-    'missing', 'wrong', 'incorrect', 'failed', 'issue', 'problem',
-    'undefined', 'empty', 'invalid'
-]
+def _get_embeddings(texts: List[str]) -> np.ndarray:
+    return np.array(list(model.embed(texts)))
 
-# 2. Justification: Reasoning & Causal Explanation
-# Sumber: Kerman et al. (2024) - Cognitive Justification Feature (BARU)
-JUSTIFICATION_KEYWORDS = [
-    # Indonesian
-    'karena', 'sebab', 'akibat', 'sehingga', 'maka', 'akibatnya',
-    'alasan', 'penyebab', 'mengapa', 'due to', 'oleh karena',
-    # English
-    'because', 'therefore', 'thus', 'hence', 'due to', 'leads to',
-    'causes', 'reason', 'why', 'since', 'as a result'
-]
+ANCHOR_VECTORS = {
+    category: _get_embeddings(keywords)
+    for category, keywords in ANCHOR_DATA.items()
+}
 
-# 3. Constructive: Actionable Recommendations & Plans
-# Sumber: Kerman et al. (2024) - Constructive Feature
-CONSTRUCTIVE_KEYWORDS = [
-    # Indonesian
-    'seharusnya', 'coba', 'gunakan', 'ubah', 'perbaiki', 'tambahkan',
-    'hapus', 'pindahkan', 'solusi', 'sarankan', 'usulkan', 'ganti',
-    # English
-    'should', 'try', 'use', 'change', 'fix', 'add', 'remove', 'move',
-    'consider', 'recommend', 'suggest', 'replace', 'update'
-]
-
-# 4. Bloom's Higher-Order Verbs (Quality Bonus)
-# Sumber: ACM Bloom's for Computing (2023) - Evaluating & Analyzing Levels
-BLOOMS_HIGH_ORDER_KEYWORDS = [
-    # Indonesian
-    'debug', 'optimize', 'validasi', 'trace', 'telusuri', 'analisis',
-    'evaluasi', 'refactor', 'struktur ulang', 'prioritas', 'bukti',
-    # English
-    'debug', 'optimize', 'validate', 'trace', 'analyze', 'evaluate',
-    'refactor', 'prioritize', 'prove', 'verify', 'test', 'secure'
-]
-
-
-def _contains_keyword(text: str, keywords: List[str]) -> bool:
-    """Periksa apakah ada keyword dalam teks (case-insensitive)."""
-    text_lower = text.lower()
-    return any(kw.lower() in text_lower for kw in keywords)
-
-
-def _count_keywords(text: str, keywords: List[str]) -> int:
-    """Hitung berapa banyak keyword yang muncul dalam teks (case-insensitive)."""
-    text_lower = text.lower()
-    count = 0
-    for kw in keywords:
-        count += text_lower.count(kw.lower())
-    return count
-
+def _is_gibberish(text: str) -> bool:
+    """Basic heuristic to catch 'asdfghjkl' style gibberish."""
+    # Check for vowel ratio (languages like Indo/English usually have > 20% vowels)
+    vowels = len(re.findall(r'[aeiou]', text.lower()))
+    total_chars = len(re.sub(r'\s+', '', text))
+    if total_chars == 0: return True
+    vowel_ratio = vowels / total_chars
+    
+    # Check for long consonant runs
+    consonant_runs = re.findall(r'[^aeiou\s]{5,}', text.lower())
+    
+    return vowel_ratio < 0.1 or len(consonant_runs) > 0
 
 def calculate_system_score(feedback_text: str) -> float:
-    """
-    Hitung feedback quality score pakai weighted keyword matching.
-
-    Algoritma (Bagian 6.6 revisi):
-    - Tier 1: Structural Quality (weighted components)
-      - Identification (0.3): Problem localization & error detection
-      - Justification (0.4): Reasoning & causal explanation (bobot tertinggi)
-      - Constructive (0.3): Actionable recommendations
-    - Tier 2: Cognitive Depth Bonus (Bloom's Taxonomy)
-      - Bonus maksimal 0.2 untuk higher-order verbs
-
-    Args:
-        feedback_text: Teks feedback dari reviewer
-
-    Returns:
-        Quality score dalam rentang [0.0, 1.0]
-    """
-    # --- Pre-processing ---
+    # --- STAGE 0: Basic Prefilters ---
     if not feedback_text or len(feedback_text.strip()) < 15:
-        return 0.1  # Terlalu pendek untuk bermakna
+        return 0.1
+    
+    if _is_gibberish(feedback_text):
+        return 0.1
 
     text = feedback_text.strip()
+    
+    # --- STAGE 1: Domain Relevance Check (Sentence Level) ---
+    # We check if the WHOLE sentence is about programming/feedback.
+    sentence_vector = next(model.embed([text]))
+    domain_anchors = ANCHOR_VECTORS["domain_relevance"]
+    relevance_sim = float(np.max(np.dot(domain_anchors, sentence_vector)))
+    
+    # If not related to technical feedback, we treat it as low quality
+    # Threshold 0.35 - 0.4 is usually safe for this model
+    is_relevant = relevance_sim > 0.38
 
-    # --- Tier 1: Structural Quality (Weighted Components) ---
-    # Berdasarkan temuan Kerman et al. (2024) tentang predictive features
+    # --- STAGE 2: Word-Level Feature Scoring ---
+    clean_text = text.lower().replace('.', ' ').replace(',', ' ').replace('!', ' ')
+    words = [w for w in clean_text.split() if len(w) > 2]
+    if not words: return 0.1
+    
+    word_vectors = np.array(list(model.embed(words)))
+    category_scores = []
+    for cat in ["identification", "justification", "constructive", "blooms_high"]:
+        anchors = ANCHOR_VECTORS[cat]
+        sim_matrix = np.dot(word_vectors, anchors.T)
+        category_scores.append(float(np.max(sim_matrix)))
 
-    has_identification = _contains_keyword(text, IDENTIFICATION_KEYWORDS)
-    has_justification = _contains_keyword(text, JUSTIFICATION_KEYWORDS)
-    has_constructive = _contains_keyword(text, CONSTRUCTIVE_KEYWORDS)
+    # Calculate base average
+    final_score = sum(category_scores) / 4.0
+    
+    # If irrelevant (Stage 1 failed), heavily penalize the score
+    if not is_relevant:
+        # We don't zero it to 0.0 to allow some feedback for the user, 
+        # but 0.15 is basically a "Fail".
+        return min(0.15, final_score)
 
-    # Weighted Sum: Justification dengan bobot tertinggi sesuai prediktor sukses Kerman
-    structural_score = 0.0
-    if has_identification:
-        structural_score += 0.3
-    if has_justification:
-        structural_score += 0.4
-    if has_constructive:
-        structural_score += 0.3
-
-    # --- Tier 2: Cognitive Depth Bonus (Bloom's Taxonomy) ---
-    # Berdasarkan ACM Bloom's for Computing (2023) Higher-Order Verbs
-
-    high_order_count = _count_keywords(text, BLOOMS_HIGH_ORDER_KEYWORDS)
-
-    depth_bonus = 0.0
-    if high_order_count > 0:
-        # Batasi bonus maksimal 0.2 untuk mencegah mengaburkan structural quality
-        depth_bonus = min(0.2, high_order_count * 0.1)
-
-    # --- Final Calculation ---
-    final_score = structural_score + depth_bonus
-
-    # Pastikan score tetap dalam rentang [0.0, 1.0]
     return max(0.0, min(1.0, final_score))

@@ -79,6 +79,12 @@ class AssessmentSession(Base):
         nullable=False,
         index=True
     )
+
+    # Waktu pas soal dikasih ke user
+    current_question_start_time: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
     
     status: Mapped[AssessmentSessionStatus] = mapped_column(
         Enum(

@@ -1221,92 +1221,70 @@ final_score = (0.5 * system_score) + (0.5 * (1.0 IF is_helpful ELSE 0.0))
 
 ---
 
-### 6.6 NLP Feedback Quality Scoring
+### 6.6 Semantic Feedback Quality Scoring (Multilingual MiniLM)
+
+Sistem menggunakan model **Sentence-Transformers (MiniLM-L12-v2)** yang dioptimasi via **FastEmbed (ONNX)** untuk melakukan penilaian kualitas feedback secara semantik. Berbeda dengan *keyword matching* tradisional, sistem ini mengukur jarak kosinus antara kata-kata dalam feedback dengan konsep-konsep jangkar (*semantic anchors*) dalam ruang vektor multidimensi. Hal ini memungkinkan sistem mendukung *code-switching* (Indonesian-English) dan mengenali sinonim secara otomatis.
+
+#### Multi-Stage NLP Pipeline
 
 ```python
-# Section 6.6: NLP Feedback Quality Scoring
+# Model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+# Engine: FastEmbed (Lightweight CPU Inference)
 
-# 1. Identification: Problem localization & error detection
-# Source: Kerman et al. (2024) - Cognitive Identification Feature
-IDENTIFICATION_KEYWORDS = [
-    # Indonesian
-    'error', 'salah', 'bug', 'masalah', 'issue', 'kurang', 'hilang', 
-    'tidak muncul', 'tidak berjalan', 'kosong', 'null', 'gagal', 
-    'exception', 'typo', 'keliru', 'cacat', 'anomali',
-    # English
-    'missing', 'wrong', 'incorrect', 'failed', 'issue', 'problem', 
-    'undefined', 'empty', 'invalid'
-]
-
-# 2. Justification: Reasoning & Causal Explanation
-# Source: Kerman et al. (2024) - Cognitive Justification Feature (NEW)
-JUSTIFICATION_KEYWORDS = [
-    # Indonesian
-    'karena', 'sebab', 'akibat', 'sehingga', 'maka', 'akibatnya', 
-    'alasan', 'penyebab', 'mengapa', 'due to', 'oleh karena',
-    # English
-    'because', 'therefore', 'thus', 'hence', 'due to', 'leads to', 
-    'causes', 'reason', 'why', 'since', 'as a result'
-]
-
-# 3. Constructive: Actionable Recommendations & Plans
-# Source: Kerman et al. (2024) - Constructive Feature
-CONSTRUCTIVE_KEYWORDS = [
-    # Indonesian
-    'seharusnya', 'coba', 'gunakan', 'ubah', 'perbaiki', 'tambahkan', 
-    'hapus', 'pindahkan', 'solusi', 'sarankan', 'usulkan', 'ganti',
-    # English
-    'should', 'try', 'use', 'change', 'fix', 'add', 'remove', 'move', 
-    'consider', 'recommend', 'suggest', 'replace', 'update'
-]
-
-# 4. Bloom's Higher-Order Verbs (Quality Bonus)
-# Source: ACM Bloom's for Computing (2023) - Evaluating & Analyzing Levels
-BLOOMS_HIGH_ORDER_KEYWORDS = [
-    # Indonesian
-    'debug', 'optimize', 'validasi', 'trace', 'telusuri', 'analisis', 
-    'evaluasi', 'refactor', 'struktur ulang', 'prioritas', 'bukti',
-    # English
-    'debug', 'optimize', 'validate', 'trace', 'analyze', 'evaluate', 
-    'refactor', 'prioritize', 'prove', 'verify', 'test', 'secure'
-]
+# 1. Semantic Anchors (Conceptual Archetypes)
+ANCHOR_DATA = {
+    "identification": ["salah", "error", "bug", "mistake", "masalah"],
+    "justification": ["karena", "sebab", "alasan", "because", "reason"],
+    "constructive": ["sebaiknya", "perbaiki", "saran", "should", "fix", "suggest"],
+    "blooms_high": ["analisis", "optimasi", "refactor", "analyze", "optimize"],
+    "domain_relevance": [
+        "technical programming feedback", "code review comment", 
+        "sql query feedback", "software implementation review"
+    ]
+}
 
 FUNCTION calculate_system_score(feedback_text):
-    # --- Pre-processing ---
+    # --- Stage 0: Basic Prefilters ---
     IF LENGTH(TRIM(feedback_text)) < 15:
-        RETURN 0.1  # Too short to be meaningful
+        RETURN 0.1  # Guard clause untuk teks terlalu pendek
+    
+    IF is_gibberish(feedback_text):
+        RETURN 0.1  # Filter random characters (e.g. "asdfghjkl")
 
-    text = LOWERCASE(feedback_text)
+    # --- Stage 1: Domain Relevance Check (Sentence Level) ---
+    # Mengukur apakah feedback relevan dengan domain pemrograman teknis.
+    sentence_vector = model.embed(feedback_text)
+    relevance_sim = MAX(COSINE_SIMILARITY(sentence_vector, ANCHOR_DATA["domain_relevance"]))
     
-    # --- Tier 1: Structural Quality (Weighted Components) ---
-    # Based on Kerman et al. (2024) findings on predictive features
+    # Jika tidak relevan (e.g. ngobrol santai, nasi goreng), skor dipenalti maksimal.
+    IF relevance_sim < 0.38:
+        RETURN MIN(0.15, word_level_average)
+
+    # --- Stage 2: Word-Level Semantic Max (Feature Scoring) ---
+    # Feedback dipecah menjadi kata-kata (tokens).
+    # Untuk setiap kategori (ID, Jus, Con, Bloom), dicari kata dengan similarity tertinggi.
+    tokens = TOKENIZE(feedback_text)
+    word_vectors = model.embed(tokens)
     
-    has_identification = ANY(kw IN text FOR kw IN IDENTIFICATION_KEYWORDS)
-    has_justification  = ANY(kw IN text FOR kw IN JUSTIFICATION_KEYWORDS)
-    has_constructive   = ANY(kw IN text FOR kw IN CONSTRUCTIVE_KEYWORDS)
+    category_scores = []
+    FOR category IN ["identification", "justification", "constructive", "blooms_high"]:
+        # Max Pooling: S_cat = max(similarity(word_i, anchor_j))
+        max_sim = MAX_SIMILARITY(word_vectors, ANCHOR_DATA[category])
+        category_scores.append(max_sim)
+
+    # --- Final Calculation: Pure Simple Average ---
+    # Memberikan bobot yang adil bagi setiap komponen kualitas.
+    final_score = SUM(category_scores) / 4.0
     
-    # Weighted Sum: Justification weighted highest as per Kerman's success predictors
-    structural_score = 0.0
-    IF has_identification: structural_score += 0.3
-    IF has_justification:  structural_score += 0.4
-    IF has_constructive:   structural_score += 0.3
-    
-    # --- Tier 2: Cognitive Depth Bonus (Bloom's Taxonomy) ---
-    # Based on ACM Bloom's for Computing (2023) Higher-Order Verbs
-    
-    depth_bonus = 0.0
-    high_order_count = COUNT(kw IN text FOR kw IN BLOOMS_HIGH_ORDER_KEYWORDS)
-    
-    IF high_order_count > 0:
-        # Cap bonus at 0.2 to prevent overshadowing structural quality
-        depth_bonus = MIN(0.2, high_order_count * 0.1)
-    
-    # --- Final Calculation ---
-    final_score = structural_score + depth_bonus
-    
-    # Ensure score stays within [0.0, 1.0] range
     RETURN CLAMP(final_score, 0.0, 1.0)
 END FUNCTION
+```
+
+**Justifikasi Metodologis:**
+1. **Multilingual MiniLM**: Menghilangkan bias bahasa pada populasi mahasiswa Indonesia yang sering mencampur istilah teknis Inggris dengan struktur kalimat Indonesia.
+2. **Word-Level Max Pooling**: Memastikan sinyal teknis yang kuat (e.g. kata "refactor") tetap terdeteksi dengan skor tinggi meskipun dikelilingi oleh kata-kata umum (*noise*) yang memiliki similarity rendah.
+3. **Domain Relevance Filter**: Mencegah *false positive* di mana teks non-teknis yang panjang mendapatkan skor tinggi hanya karena kemiripan acak dengan konsep jangkar.
+4. **Pure Simple Average**: Menjamin transparansi matematis untuk dokumentasi tesis, di mana setiap dimensi kualitas (Identifikasi, Justifikasi, Konstruktif, dan Bloom) memiliki kontribusi yang setara tanpa bobot subjektif yang arbitrer.
 ```
 
 ---

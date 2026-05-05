@@ -12,10 +12,10 @@ BASE_RATING = 1300.0  # Rating awal semua siswa
 RATING_MIN = 1000.0
 RATING_MAX = 1800.0  
 K_FACTORS = {
-    'novice': 30,    # 0-9 attempts
-    'intermediate': 20,  # 10-24 attempts
-    'advanced': 15,  # 25-49 attempts
-    'expert': 10     # 50+ attempts
+    'novice': 30,    # 0-9 attempt
+    'intermediate': 20,  # 10-24 attempt
+    'advanced': 15,  # 25-49 attempt
+    'expert': 10     # 50+ attempt
 }
 TIME_DISCRIMINATION = 1e-6 # parameter ai di rumus
 DEFAULT_TIME_LIMIT = 300000  # di = 5 menit dalam milidetik
@@ -41,25 +41,17 @@ def calculate_initial_theta(correct_count: int, total_questions: int = 5) -> flo
     return max(1100, min(1500, theta))
 
 def calculate_expected_score(student_rating: float, question_difficulty: float)->float:
-    '''
-    Vesin et al. (2022)
-    Probabilitas siswa berhasil menjawab soal
-    '''
-    
-    rating_diff = student_rating - question_difficulty
+    # Probabilitas student menang (bener)
+    rating_diff = question_difficulty - student_rating
     return 1.0 / (1.0 + math.pow(10, rating_diff / 400.0))
 
 def get_k_factor(total_attempts: int)->int:
-    '''
-    Spesifikasi 6.2: K-Factor decay
-    Faktor pengali untuk perubahan rating,
-    lebih sensitif di awal dan lebih stabil di akhir (konvergensi)
-    '''
-    if total_attempts < 15:
+    # Decay K-factor biar makin stabil
+    if total_attempts < 10:
         return K_FACTORS['novice']
-    elif total_attempts < 30:
+    elif total_attempts < 25:
         return K_FACTORS['intermediate']
-    elif total_attempts < 60:
+    elif total_attempts < 50:
         return K_FACTORS['advanced']
     else:
         return K_FACTORS['expert']

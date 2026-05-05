@@ -247,13 +247,13 @@ async def start_session(
                         code=HTTP_403_FORBIDDEN,
                         message=f"Module {session_request.module_id} locked. Need theta >= {module_threshold}"
                     )
-        
         # Buat session baru
         new_session = AssessmentSession(
             session_id=uuid4(),
             user_id=current_user.user_id,
             module_id=session_request.module_id,
-            status="ACTIVE"
+            status="ACTIVE",
+            current_question_start_time=datetime.utcnow()  # Mulai hitung waktu
         )
         
         db.add(new_session)
@@ -575,10 +575,16 @@ async def get_current_question(
                 message="Tidak ada soal tersedia lagi. Session selesai."
             )
         
-        # Hitung distance untuk setiap soal ini sebagai AKTIF
-        # Tapi JANGAN tambah ke served_ids dulu! Itu terjadi di /next
+        # Update session with the new question
         session.current_question_id = selected_question.question_id
         session.current_question_attempt_count = 0
+        session.current_question_start_time = datetime.utcnow()  # Catat waktu mulai
+        
+        # Add to served_ids to prevent it from being picked again in /next or submit_answer checks
+        current_served = list(session.question_ids_served) if session.question_ids_served else []
+        if selected_question.question_id not in current_served:
+            current_served.append(selected_question.question_id)
+            session.question_ids_served = current_served
         
         await db.commit()
         await db.refresh(session)
@@ -699,11 +705,16 @@ async def submit_answer(
         session.total_session_attempts += 1
         attempt_number = session.current_question_attempt_count
         
+        # Hitung thinking time (ms)
+        thinking_time_ms = 0
+        if session.current_question_start_time:
+            delta = datetime.utcnow() - session.current_question_start_time
+            thinking_time_ms = int(delta.total_seconds() * 1000)
+
         # Tentukan apakah ini final attempt
         is_final = is_correct or (attempt_number >= 3)
         
         # Log attempt
-        # Catatan: theta_before/after dan difficulty akan diisi di /next endpoint saat finalisasi
         assessment_log = AssessmentLog(
             session_id=session.session_id,
             user_id=current_user.user_id,
@@ -712,7 +723,7 @@ async def submit_answer(
             is_correct=is_correct,
             attempt_number=attempt_number,
             is_final_attempt=is_final,
-            execution_time_ms=submit_data.execution_time_ms
+            execution_time_ms=thinking_time_ms  # Simpan waktu mikir
         )
         
         db.add(assessment_log)
@@ -891,6 +902,7 @@ async def get_next_question_endpoint(
         
         # Update Elo rating
         theta_before = current_user.theta_individu
+        diff_before = question.current_difficulty  # Simpan diff sebelum ganti
         k_factor = get_k_factor(session.total_session_attempts)
         
         new_theta, new_difficulty = update_elo_ratings(
@@ -903,13 +915,13 @@ async def get_next_question_endpoint(
         # Update user dan question
         current_user.theta_individu = new_theta
         current_user.total_attempts += 1
-        current_user.k_factor = get_k_factor(session.total_session_attempts)
+        current_user.k_factor = k_factor
         question.current_difficulty = new_difficulty
         
         # Update final attempt log dengan theta values
         final_attempt.theta_before = theta_before
         final_attempt.theta_after = new_theta
-        final_attempt.difficulty_before = question.current_difficulty
+        final_attempt.difficulty_before = diff_before
         final_attempt.difficulty_after = new_difficulty
         final_attempt.is_final_attempt = True
         
@@ -1179,6 +1191,7 @@ async def get_next_question_endpoint(
         session.question_ids_served = current_served
         session.current_question_id = selected_question.question_id
         session.current_question_attempt_count = 0
+        session.current_question_start_time = datetime.utcnow()  # Reset timer buat soal baru
         
         # Hitung jumlah soal yang sudah di-serve dan total tersedia
         questions_served = len(current_served)

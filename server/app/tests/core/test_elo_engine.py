@@ -235,17 +235,19 @@ class TestEloRatingUpdates:
     
     def test_question_difficulty_adaptation(self):
         """Test question difficulty adapts based on student performance"""
-        # Easy question (low difficulty) answered correctly by strong student
-        new_student, new_difficulty = update_elo_ratings(1500.0, 1000.0, 1.0, 30)
-        assert new_difficulty > 1000.0, f"Easy question should get harder when strong student answers correctly: {1000.0} -> {new_difficulty}"
+        # Soal medium (1300) dijawab bener (W=1) ama student jago (1500)
+        # Difficulty harusnya TURUN (soalnya kalah)
+        new_student, new_difficulty = update_elo_ratings(1500.0, 1300.0, 1.0, 30)
+        assert new_difficulty < 1300.0, f"Soal harusnya makin gampang pas student bener: 1300.0 -> {new_difficulty}"
         
-        # Hard question (high difficulty) answered incorrectly by weak student  
-        new_student, new_difficulty = update_elo_ratings(1100.0, 1600.0, 0.0, 30)
-        assert new_difficulty < 1600.0, f"Hard question should get easier when weak student answers incorrectly: {1600.0} -> {new_difficulty}"
+        # Soal gampang (1100) dijawab salah (W=0) ama student cupu (1000)
+        # Difficulty harusnya NAIK (soalnya menang)
+        new_student, new_difficulty = update_elo_ratings(1000.0, 1100.0, 0.0, 30)
+        assert new_difficulty > 1100.0, f"Soal harusnya makin susah pas student salah: 1100.0 -> {new_difficulty}"
         
-        # Medium difficulty answered by equal rating should have minimal change
+        # Performance seimbang, diculty berubah dikit doang
         new_student, new_difficulty = update_elo_ratings(1300.0, 1300.0, 0.5, 30)
-        assert abs(new_difficulty - 1300.0) < 50.0, f"Equal performance should cause minimal difficulty change: {1300.0} -> {new_difficulty}"
+        assert abs(new_difficulty - 1300.0) < 1.0, f"Kalo imbang diculty jangan jauh-jauh: 1300.0 -> {new_difficulty}"
     
     def test_rating_bounds(self):
         """Updated ratings should stay within [1000, 1800] bounds"""
