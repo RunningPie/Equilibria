@@ -93,6 +93,7 @@ async def find_heterogeneous_peer(
     result = await db.execute(
         select(User).where(
             User.user_id != requester.user_id,
+            User.group_assignment != 'B',  # Exclude group B (control group)
             User.status != "NEEDS_PEER_REVIEW",
             sql_func.abs(User.theta_individu - requester.theta_individu) >= min_difference
         ).order_by(
