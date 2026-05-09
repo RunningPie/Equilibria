@@ -7,28 +7,36 @@ if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 
 try:
-    from app.core.feedback_scoring import calculate_system_score, model, ANCHOR_VECTORS
+    from app.core.feedback_scoring import calculate_system_score, model, ANCHOR_VECTORS, split_into_sentences
     print("NLP System Scoring Module Loaded Successfully.")
 except ImportError as e:
     print(f"Import Error: {e}")
     sys.exit(1)
 
-def get_detailed_word_scores(text: str):
-    clean_text = text.lower().replace('.', ' ').replace(',', ' ').replace('!', ' ')
-    words = [w for w in clean_text.split() if len(w) > 2]
-    if not words: return {}
-    
-    # Sentence level relevance
-    sentence_vector = next(model.embed([text]))
+def get_detailed_sentence_scores(text: str):
+    # Sentence level relevance (uses whole text)
+    text_vector = next(model.embed([text]))
     domain_anchors = ANCHOR_VECTORS["domain_relevance"]
-    relevance_sim = float(np.max(np.dot(domain_anchors, sentence_vector)))
+    relevance_sim = float(np.max(np.dot(domain_anchors, text_vector)))
 
-    # Word level feature scores
-    word_vectors = np.array(list(model.embed(words)))
+    sentences = split_into_sentences(text)
+    if not sentences:
+        sentences = [text]
+        
+    sentence_vectors = np.array(list(model.embed(sentences)))
     results = {"relevance": relevance_sim}
-    for cat in ["identification", "justification", "constructive", "blooms_high"]:
+    
+    scoring_categories = [
+        "cognitive_description", 
+        "cognitive_identification", 
+        "cognitive_justification", 
+        "constructive", 
+        "affective"
+    ]
+    
+    for cat in scoring_categories:
         anchors = ANCHOR_VECTORS[cat]
-        sim_matrix = np.dot(word_vectors, anchors.T)
+        sim_matrix = np.dot(sentence_vectors, anchors.T)
         results[cat] = float(np.max(sim_matrix))
         
     return results
@@ -46,21 +54,21 @@ def run_tests():
         {"cat": "Gibber", "lang": "EN", "text": "asdfghjkl qwerty uiop zxcvbnm."},
     ]
 
-    print("\nWord-Level Semantic Max: Calibrated with Domain Filter")
-    header = f"{'Category':<7} | {'Lang':<4} | {'Score':<5} | {'Rel':<5} | {'ID':<5} | {'Jus':<5} | {'Con':<5} | {'Bloom':<5} | {'Feedback Text'}"
+    print("\nSentence-Level Semantic Max: Calibrated with Domain Filter")
+    header = f"{'Category':<7} | {'Lang':<4} | {'Score':<5} | {'Rel':<5} | {'Desc':<5} | {'Iden':<5} | {'Just':<5} | {'Cons':<5} | {'Affc':<5} | {'Feedback Text'}"
     print(header)
-    print("-" * 130)
+    print("-" * 140)
 
     for tc in test_suite:
         score = calculate_system_score(tc['text'])
-        raw = get_detailed_word_scores(tc['text'])
+        raw = get_detailed_sentence_scores(tc['text'])
         
         if raw:
-            scores_str = f"{raw['relevance']:<5.2f} | {raw['identification']:<5.2f} | {raw['justification']:<5.2f} | {raw['constructive']:<5.2f} | {raw['blooms_high']:<5.2f}"
+            scores_str = f"{raw['relevance']:<5.2f} | {raw['cognitive_description']:<5.2f} | {raw['cognitive_identification']:<5.2f} | {raw['cognitive_justification']:<5.2f} | {raw['constructive']:<5.2f} | {raw['affective']:<5.2f}"
         else:
-            scores_str = f"{'N/A':<5} | {'N/A':<5} | {'N/A':<5} | {'N/A':<5} | {'N/A':<5}"
+            scores_str = f"{'N/A':<5} | {'N/A':<5} | {'N/A':<5} | {'N/A':<5} | {'N/A':<5} | {'N/A':<5}"
             
-        print(f"{tc['cat']:<7} | {tc['lang']:<4} | {score:<5.2f} | {scores_str} | {tc['text'][:40]}...")
+        print(f"{tc['cat']:<7} | {tc['lang']:<4} | {score:<5.2f} | {scores_str} | {tc['text'][:40]}..." )
 
 if __name__ == "__main__":
     run_tests()
