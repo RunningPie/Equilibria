@@ -1,6 +1,5 @@
 """
 Module Model - Merepresentasikan tabel modules di skema public.
-Sesuai Technical Specifications v2 Section 3.1 Table modules.
 """
 from sqlalchemy import Column, String, Float, Boolean, Text, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -11,8 +10,7 @@ from app.db.base import Base
 class Module(Base):
     """
     Model untuk tabel modules.
-    Menyimpan materi pembelajaran hierarkis (CH01, CH02, CH03).
-    Sesuai Specs Section 4 (Material Structure).
+    Menyimpan materi pembelajaran sekuensial (CH01, CH02, CH03).
     """
     __tablename__ = "modules"
 

@@ -1,11 +1,16 @@
+"""
+Skema Pretest - Validasi sesi pretest, soal pretest, submit jawaban, dan hasil pretest
+"""
+
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
 
-# === Schema Response ===
+# === Skema Response ===
 
 class PreTestSessionResponse(BaseModel):
+    """Skema respons untuk sesi pretest yang sedang aktif"""
     session_id: UUID = Field(..., example="123e4567-e89b-12d3-a456-426614174000")
     current_question_index: int = Field(..., example=0)
     total_questions: int = Field(..., example=5)
@@ -29,6 +34,7 @@ class PreTestSessionResponse(BaseModel):
     )
 
 class PreTestQuestion(BaseModel):
+    """Skema untuk data soal pretest yang disajikan"""
     question_id: str = Field(..., min_length=5, max_length=10, example="CH01-Q001")
     content: str = Field(..., min_length=5, example="What is the capital of France?")
     question_number: int = Field(..., example=1)
@@ -67,6 +73,7 @@ class QueryResultData(BaseModel):
 
 
 class PreTestResult(BaseModel):
+    """Skema untuk hasil analisis dan perhitungan rating awal setelah pretest selesai"""
     session_id: UUID = Field(..., example="123e4567-e89b-12d3-a456-426614174000")
     theta_initial: Optional[float] = Field(None, ge=500, le=1500)
     has_completed_pretest: bool = Field(..., example=False)
@@ -98,9 +105,10 @@ class PreTestResult(BaseModel):
         }
     )
 
-# === Schema Request ===
+# === Skema Request ===
 
 class PreTestAnswerSubmit(BaseModel):
+    """Skema request untuk men-submit jawaban pretest pengguna"""
     question_id: str = Field(..., min_length=5, max_length=10, example="CH01-Q001")
     question_number: int = Field(..., example=1)
     user_query: str = Field(..., min_length=10, max_length=1000, example="SELECT * FROM users WHERE age > 18")

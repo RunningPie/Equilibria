@@ -1,11 +1,5 @@
 '''
 Modul inti untuk eksekusi SQL pengguna dan perbandingan dengan kunci jawaban.
-
-Perbaikan (2026-03-13):
-  - Sandbox sekarang pakai koneksi terpisah yang di-SET ROLE ke sandbox_executor
-    dan SET search_path ke sandbox
-  - statement_timeout di-set SEBELUM query dijalankan.
-  - Kegagalan sandbox tidak mencemari transaksi sesi utama (db)
 '''
 
 import asyncio
@@ -97,7 +91,7 @@ def serialize_value(value):
         return str(value)
     if isinstance(value, bytes):
         return value.hex()
-    # Tangani asyncpg.Record atau tipe row-like lain yang mungkin muncul sebagai nilai bersarang
+    # Tangani asyncpg.Record atau tipe row-like lain yang mungkin muncul
     if hasattr(value, '__class__') and 'asyncpg' in value.__class__.__module__:
         if hasattr(value, '__dict__'):
             return str(value)
@@ -116,10 +110,8 @@ def serialize_row(row):
     elif hasattr(row, '__dict__'):
         return {key: serialize_value(value) for key, value in row.__dict__.items()}
     elif hasattr(row, '__iter__') and hasattr(row, '_fields'):
-        # asyncpg.Record style
         return {field: serialize_value(row[i]) for i, field in enumerate(row._fields)}
     else:
-        # Fallback: konversi ke dict jika memungkinkan
         return dict(row)
 
 
@@ -177,12 +169,10 @@ async def execute_query_in_sandbox(
     """
     Eksekusi query SQL secara aman di skema sandbox:
       1. Keyword blocklist (DROP, DELETE, INSERT, dll.)
-      2. Koneksi terpisah dari sesi utama — kegagalan tidak abort transaksi app.
-      3. SET ROLE ke sandbox_executor (hanya punya SELECT di skema sandbox).
-      4. SET search_path = sandbox  → unqualified table names mengarah ke sandbox.
+      2. Koneksi terpisah dari sesi utama kegagalan tidak abort transaksi app.
+      3. SET ROLE ke sandbox_executor (hanya bisa SELECT di skema sandbox).
+      4. SET search_path = sandbox  → ganti skema sandbox
       5. SET statement_timeout = <timeout_ms> SEBELUM query dijalankan.
-
-    Parameter db sengaja dihapus — sandbox tidak boleh menyentuh sesi utama sama sekali.
     """
     clean_query = _validate_query(query)
 
@@ -194,7 +184,7 @@ async def execute_query_in_sandbox(
             # 1. Turunkan hak akses ke role sandbox_executor.
             await conn.execute(text(f"SET ROLE {settings.SANDBOX_DB_ROLE}"))
 
-            # 2. Arahkan unqualified table names ke skema sandbox.
+            # 2. Arahkan ke skema sandbox.
             await conn.execute(text("SET search_path = sandbox"))
 
             # 3. Terapkan timeout SEBELUM query dijalankan.
@@ -228,14 +218,6 @@ async def compare_query_results(
 ) -> dict:
     """
     Bandingkan hasil query pengguna dengan target query secara order-insensitive.
-
-    Returns:
-        dict dengan format:
-        {
-            "is_correct": bool,
-            "user_result": dict | None,  # Hasil query pengguna (rows, row_count)
-            "error": str | None           # Pesan error jika eksekusi gagal
-        }
 
     Mengembalikan result dengan is_correct=False (bukan raise) untuk semua kasus
     kegagalan sehingga pemanggil (submit handler) bisa tetap melanjutkan update sesi utama.

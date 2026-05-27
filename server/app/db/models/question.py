@@ -1,6 +1,5 @@
 """
 Question Model - Merepresentasikan tabel questions di skema public.
-Sesuai Technical Specifications v2 Section 3.1 Table questions.
 """
 from sqlalchemy import Column, String, Float, Boolean, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column

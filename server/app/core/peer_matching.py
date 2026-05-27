@@ -1,5 +1,5 @@
 """
-Modul Peer Matching - Tech Specs v4.2 Section 6.4
+Modul Peer Matching
 
 Implementasi constraint-based re-ranking untuk heterogeneous peer matching
 untuk memecah filter bubbles saat stagnation.
@@ -16,23 +16,16 @@ from app.core.logging_config import get_loggers
 
 system_logger, assessment_logger = get_loggers()
 
-# Cohen's d threshold for meaningful heterogeneity (medium effect size)
+# Batas Cohen's d (medium effect size)
 COHEN_D_THRESHOLD = 0.5
 
-# Fallback population std if all users have same theta (edge case)
+# Fallback (edge case)
 FALLBACK_POPULATION_STD = 100.0
 
 
 async def calculate_population_std(db: AsyncSession) -> float:
     """
-    Hitung population standard deviation dari theta_individu
-    di seluruh user ACTIVE.
-    
-    Args:
-        db: Async database session
-        
-    Returns:
-        Population standard deviation dari theta_individu
+    Hitung standard deviasi theta_individu dari seluruh user ACTIVE.
     """
     result = await db.execute(
         select(User.theta_individu).where(User.status == "ACTIVE")
@@ -56,25 +49,18 @@ async def find_heterogeneous_peer(
 ) -> Optional[User]:
     """
     Cari heterogeneous peer untuk collaborative review.
-    
-    Algoritma (Section 6.4):
+
     1. Hitung population std dari theta_individu di seluruh user ACTIVE
     2. Hitung min_difference = 0.5 * population_std (Cohen's d = 0.5)
-    3. Filter user dimana |theta_peer - theta_requester| >= min_difference
+    3. Filter user |theta_peer - theta_requester| >= min_difference
     4. Exclude user dengan status 'NEEDS_PEER_REVIEW'
     5. Order by theta difference descending, ambil top 5, random select
     
-    Args:
-        requester: User yang mengalami stagnation
-        db: Async database session
-        
-    Returns:
-        Selected peer User atau None kalau tidak ada peer yang cocok
     """
-    # Step 1: Hitung population standard deviation
+    # Hitung population standard deviation
     population_std = await calculate_population_std(db)
     
-    # Step 2: Hitung minimum difference (Cohen's d = 0.5)
+    # Hitung minimum difference
     min_difference = COHEN_D_THRESHOLD * population_std
     
     system_logger.info(
@@ -88,8 +74,7 @@ async def find_heterogeneous_peer(
         }
     )
     
-    # Step 3 & 4: Cari candidates dengan theta difference yang cukup
-    # Exclude: requester sendiri, user yang butuh peer review
+    # Cari candidates dengan theta difference yang cukup
     result = await db.execute(
         select(User).where(
             User.user_id != requester.user_id,
@@ -116,8 +101,7 @@ async def find_heterogeneous_peer(
         )
         return None
     
-    # Step 5: Random selection dari top 5 candidates
-    import random
+    # Random select dari top 5 candidates
     selected_peer = random.choice(list(candidates))
     
     theta_diff = abs(selected_peer.theta_individu - requester.theta_individu)
@@ -147,16 +131,6 @@ async def create_peer_session(
 ) -> PeerSession:
     """
     Buat peer session record yang menghubungkan requester dan reviewer.
-    
-    Args:
-        requester: User yang mengalami stagnation
-        reviewer: Peer heterogen yang ditugaskan
-        question_id: Question ID context untuk review
-        requester_query: SQL query requester untuk direview
-        db: Async database session
-        
-    Returns:
-        Created PeerSession record
     """
     peer_session = PeerSession(
         requester_id=requester.user_id,
@@ -174,9 +148,8 @@ async def create_peer_session(
     
     # Update status user
     requester.status = "NEEDS_PEER_REVIEW"
-    # Catatan: Reviewer status tetap ACTIVE (mereka masih bisa pakai sistem)
     
-    await db.flush()  # Get the session_id
+    await db.flush()
     
     system_logger.info(
         f"Peer session created: session_id={peer_session.session_id}, "

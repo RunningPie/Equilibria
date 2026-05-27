@@ -5,3 +5,4 @@ docs/equ*
 .env.db
 
 *docs/*.md
+*.txt

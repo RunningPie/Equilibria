@@ -1,6 +1,5 @@
 """
 Assessment Log Model.
-Sesuai Technical Specifications v2 Section 3.1 Table assessment_logs.
 """
 from sqlalchemy import String, Float, Integer, Boolean, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -13,7 +12,6 @@ class AssessmentLog(Base):
     """
     Model untuk tabel assessment_logs.
     Menyimpan riwayat setiap attempt siswa untuk analisis stagnasi & learning gain.
-    Logging komprehensif sesuai Specs Section 6.6.
     """
     __tablename__ = "assessment_logs"
 

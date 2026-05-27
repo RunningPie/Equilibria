@@ -1,6 +1,5 @@
 """
 Peer Session Model.
-Sesuai Technical Specifications v2 Section 3.1 Table peer_sessions.
 """
 from sqlalchemy import String, Float, Boolean, Text, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -14,7 +13,6 @@ class PeerSession(Base):
     """
     Model untuk tabel peer_sessions.
     Menyimpan sesi peer review untuk mitigasi overpersonalization.
-    Sesuai Specs Section 3.1 & 6.4 (Constraint-Based Re-ranking).
     """
     __tablename__ = "peer_sessions"
 

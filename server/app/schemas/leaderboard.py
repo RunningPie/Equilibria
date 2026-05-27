@@ -1,3 +1,7 @@
+"""
+Skema Leaderboard - Validasi entry leaderboard dan response peringkat pengguna
+"""
+
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 

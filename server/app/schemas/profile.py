@@ -1,3 +1,7 @@
+"""
+Skema Profil - Validasi data statistik profil rating Elo (individu, sosial, dan tampilan)
+"""
+
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 

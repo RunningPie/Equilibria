@@ -1,8 +1,5 @@
 """
-Assessment Session API - Tech Specs v4.2 Section 6.2
-
-Implementasi POST /session/start, GET /session/{id}/question, 
-dan endpoint terkait untuk individual mode practice.
+API Sesi Asesmen - Implementasi practice mode individu, pembaruan rating ELO, serta deteksi stagnansi pembelajaran
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -54,9 +51,9 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
     Dipanggil setelah Elo update.
     """
     try:
-        # Get semua modul yang belum unlocked
+        # Ambil semua modul yang belum terbuka (unlocked)
         result = await db.execute(
-            select(Module).where(Module.module_id != "CH01")  # CH01 selalu unlocked
+            select(Module).where(Module.module_id != "CH01")  # CH01 selalu terbuka (unlocked)
         )
         modules = result.scalars().all()
         
@@ -66,7 +63,7 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
         )
         
         for module in modules:
-            # Check apakah user sudah memiliki progress untuk modul ini
+            # Periksa apakah pengguna sudah memiliki progres untuk modul ini
             progress_result = await db.execute(
                 select(UserModuleProgress).where(
                     UserModuleProgress.user_id == user.user_id,
@@ -83,7 +80,7 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
             unlocked_now = False
             
             if not existing_progress:
-                # Cek kondisi unlock
+                # Periksa syarat pembukaan (unlock) modul
                 if user.theta_individu >= module.unlock_theta_threshold:
                     new_progress = UserModuleProgress(
                         user_id=user.user_id,
@@ -104,7 +101,7 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
                         extra={"event_type": "MODULE_UNLOCK_SKIP", "module_id": module.module_id}
                     )
             else:
-                # Progress exists but might still be locked - update if threshold met
+                # Progres sudah ada tetapi mungkin masih terkunci - buka jika threshold terpenuhi
                 if not existing_progress.is_unlocked and user.theta_individu >= module.unlock_theta_threshold:
                     existing_progress.is_unlocked = True
                     db.add(existing_progress)
@@ -120,7 +117,7 @@ async def check_and_unlock_modules(user: User, db: AsyncSession) -> None:
                         extra={"event_type": "MODULE_UNLOCK_SKIP_EXISTS", "module_id": module.module_id}
                     )
             
-            # Mark previous module as completed when unlocking a new module
+            # Tandai modul sebelumnya sebagai selesai saat membuka modul baru
             if unlocked_now and module.order_index > 1:
                 prev_module_result = await db.execute(
                     select(Module).where(Module.order_index == module.order_index - 1)
@@ -176,7 +173,7 @@ async def start_session(
     - Ada session ACTIVE di modul berbeda → return 409 + info session aktif
     """
     try:
-        # Cek apakah user sudah memiliki session aktif
+        # Periksa apakah pengguna sudah memiliki sesi aktif
         existing_session = await db.execute(
             select(AssessmentSession)
             .where(AssessmentSession.user_id == current_user.user_id)
@@ -186,7 +183,7 @@ async def start_session(
         
         if active_session:
             if active_session.module_id == session_request.module_id:
-                # Idempotent resume - return session yang sudah ada
+                # Resume idempotent - kembalikan sesi yang sudah ada
                 session_response = SessionStartResult(
                     session_id=active_session.session_id,
                     module_id=active_session.module_id,
@@ -200,7 +197,7 @@ async def start_session(
                     data=session_response
                 )
             else:
-                # Conflict - session aktif di modul berbeda
+                # Konflik - ada sesi aktif di modul berbeda
                 return jsend_fail(
                     code=status.HTTP_409_CONFLICT,
                     message=f"Kamu masih memiliki sesi aktif di {active_session.module_id}. Akhiri sesi tersebut untuk memulai sesi baru.",
@@ -226,7 +223,7 @@ async def start_session(
         
         # Cek apakah modul unlocked untuk user
         if session_request.module_id != "CH01":
-            # Check if module already unlocked via UserModuleProgress
+            # Periksa apakah modul sudah terbuka lewat UserModuleProgress
             progress_result = await db.execute(
                 select(UserModuleProgress.is_unlocked)
                 .where(UserModuleProgress.user_id == current_user.user_id)
@@ -234,7 +231,7 @@ async def start_session(
             )
             is_unlocked = progress_result.scalar_one_or_none()
 
-            # If not unlocked, check theta threshold
+            # Jika belum terbuka, periksa batas threshold theta
             if not is_unlocked:
                 module_result = await db.execute(
                     select(Module.unlock_theta_threshold)
@@ -260,7 +257,7 @@ async def start_session(
         await db.commit()
         await db.refresh(new_session)
         
-        # Update response with theta values from user (not stored in session)
+        # Perbarui respons dengan nilai theta dari pengguna (tidak disimpan di sesi)
         session_response = SessionStartResult(
             session_id=new_session.session_id,
             module_id=new_session.module_id,
@@ -303,7 +300,7 @@ async def get_active_session(
 ) -> JSONResponse:
     """Mendapatkan session aktif user saat ini."""
     try:
-        # Cari session aktif
+        # Cari sesi aktif
         result = await db.execute(
             select(AssessmentSession)
             .where(AssessmentSession.user_id == current_user.user_id)
@@ -318,10 +315,10 @@ async def get_active_session(
                 data=None
             )
         
-        # Hitung jumlah soal yang sudah di-serve dan selesai
+        # Hitung jumlah soal yang disajikan (served) dan selesai
         questions_served = len(session.question_ids_served or [])
         
-        # Hitung questions completed dengan query ke assessment_logs
+        # Hitung jumlah soal selesai dengan query ke assessment_logs
         completed_result = await db.execute(
             text("SELECT COUNT(DISTINCT question_id) FROM assessment_logs WHERE session_id = :sid AND is_final_attempt = TRUE"),
             {"sid": session.session_id}
@@ -332,8 +329,8 @@ async def get_active_session(
             session_id=session.session_id,
             module_id=session.module_id,
             status=session.status,
-            user_theta_start=current_user.theta_individu,  # Use current user theta as start
-            user_theta_current=current_user.theta_individu,  # Use current user theta
+            user_theta_start=current_user.theta_individu,  # Gunakan rating theta pengguna saat ini sebagai awal
+            user_theta_current=current_user.theta_individu,  # Gunakan rating theta pengguna saat ini
             questions_served=questions_served,
             questions_completed=questions_completed,
             started_at=session.started_at,
@@ -371,7 +368,7 @@ async def end_session(
 ) -> JSONResponse:
     """Mengakhiri session secara manual."""
     try:
-        # Cari session
+        # Cari sesi
         result = await db.execute(
             select(AssessmentSession)
             .where(AssessmentSession.session_id == session_id)
@@ -386,7 +383,7 @@ async def end_session(
                 message="Active session not found"
             )
         
-        # Update session status
+        # Perbarui status sesi
         session.status = "COMPLETED"
         session.ended_at = datetime.now(timezone.utc)
         
@@ -427,7 +424,7 @@ async def get_session_status(
 ) -> JSONResponse:
     """Mendapatkan status lengkap session."""
     try:
-        # Cari session
+        # Cari sesi
         result = await db.execute(
             select(AssessmentSession)
             .where(AssessmentSession.session_id == session_id)
@@ -441,10 +438,10 @@ async def get_session_status(
                 message="Session not found"
             )
         
-        # Hitung jumlah soal yang sudah di-serve dan selesai
+        # Hitung jumlah soal yang disajikan dan selesai
         questions_served = len(session.question_ids_served or [])
         
-        # Hitung questions completed dengan query ke assessment_logs
+        # Hitung jumlah soal selesai dengan query ke assessment_logs
         completed_result = await db.execute(
             text("SELECT COUNT(DISTINCT question_id) FROM assessment_logs WHERE session_id = :sid AND is_final_attempt = TRUE"),
             {"sid": session.session_id}
@@ -455,8 +452,8 @@ async def get_session_status(
             session_id=session.session_id,
             module_id=session.module_id,
             status=session.status,
-            user_theta_start=current_user.theta_individu,  # Use current user theta as start
-            user_theta_current=current_user.theta_individu,  # Use current user theta
+            user_theta_start=current_user.theta_individu,  # Gunakan rating theta pengguna saat ini sebagai awal
+            user_theta_current=current_user.theta_individu,  # Gunakan rating theta pengguna saat ini
             questions_served=questions_served,
             questions_completed=questions_completed,
             started_at=session.started_at,
@@ -501,7 +498,7 @@ async def get_current_question(
     3. Kalau tidak, pilih soal baru dan set sebagai current (operasi write hanya kalau perlu)
     """
     try:
-        # Cari session
+        # Cari sesi
         result = await db.execute(
             select(AssessmentSession)
             .where(AssessmentSession.session_id == session_id)
@@ -518,19 +515,19 @@ async def get_current_question(
         
         # Cek apakah sudah ada soal aktif di session ini
         if session.current_question_id is not None:
-            # User masih mengerjakan soal ini (misalnya refresh halaman)
-            # Filter soal yang aktif dan belum di-served_ids
+            # Pengguna masih mengerjakan soal ini (misalnya karena memuat ulang halaman)
+            # Saring soal yang aktif dan belum disajikan
             question_result = await db.execute(
                 select(Question).where(Question.question_id == session.current_question_id)
             )
             current_question = question_result.scalar_one_or_none()
             
             if not current_question:
-                # Soal tidak ditemukan, clear referensi yang invalid
+                # Soal tidak ditemukan, hapus referensi yang tidak valid
                 session.current_question_id = None
                 session.current_question_attempt_count = 0
                 await db.commit()
-                # Lanjutkan untuk pilih soal baru
+                # Lanjutkan untuk memilih soal baru
             else:
                 question_response = QuestionResponse(
                     session_id=session.session_id,
@@ -575,12 +572,12 @@ async def get_current_question(
                 message="Tidak ada soal tersedia lagi. Session selesai."
             )
         
-        # Update session with the new question
+        # Perbarui sesi dengan soal baru
         session.current_question_id = selected_question.question_id
         session.current_question_attempt_count = 0
         session.current_question_start_time = datetime.now(timezone.utc)  # Catat waktu mulai
         
-        # Add to served_ids to prevent it from being picked again in /next or submit_answer checks
+        # Tambahkan ke served_ids agar tidak dipilih lagi pada /next atau pengecekan submit_answer
         current_served = list(session.question_ids_served) if session.question_ids_served else []
         if selected_question.question_id not in current_served:
             current_served.append(selected_question.question_id)
@@ -645,7 +642,7 @@ async def submit_answer(
     5. Finalisasi (Elo update) ditunda ke /next endpoint agar user lihat feedback dulu
     """
     try:
-        # Cari session
+        # Cari sesi
         result = await db.execute(
             select(AssessmentSession)
             .where(AssessmentSession.session_id == session_id)
@@ -660,14 +657,14 @@ async def submit_answer(
                 message="Active session not found"
             )
         
-        # Validasi question
+        # Validasi soal
         if submit_data.question_id != session.current_question_id:
             return jsend_fail(
                 code=HTTP_400_BAD_REQUEST,
                 message="Question ID does not match current question"
             )
         
-        # Ambil data question
+        # Ambil data soal
         question_result = await db.execute(
             select(Question).where(Question.question_id == submit_data.question_id)
         )
@@ -700,21 +697,21 @@ async def submit_answer(
                 message="Error executing query in sandbox"
             )
         
-        # Update attempt count
+        # Perbarui jumlah percobaan
         session.current_question_attempt_count += 1
         session.total_session_attempts += 1
         attempt_number = session.current_question_attempt_count
         
-        # Hitung thinking time (ms)
+        # Hitung waktu berpikir (ms)
         thinking_time_ms = 0
         if session.current_question_start_time:
             delta = datetime.now(timezone.utc) - session.current_question_start_time
             thinking_time_ms = int(delta.total_seconds() * 1000)
 
-        # Tentukan apakah ini final attempt
+        # Tentukan apakah ini percobaan terakhir (final attempt)
         is_final = is_correct or (attempt_number >= 3)
         
-        # Log attempt
+        # Catat log percobaan
         assessment_log = AssessmentLog(
             session_id=session.session_id,
             user_id=current_user.user_id,
@@ -728,12 +725,10 @@ async def submit_answer(
         
         db.add(assessment_log)
         
-        # Finalisasi (Elo update) ditunda ke /next endpoint
-        # Single codepath untuk stagnation detection di /next endpoint
+        # Finalisasi (update rating Elo) ditunda ke endpoint /next
+        # Alur kode tunggal untuk deteksi stagnansi di endpoint /next
         
-        await db.commit()
-        
-        # Cek apakah masih ada soal tersedia (untuk info ke user)
+        # Periksa apakah masih ada soal tersedia (untuk informasi pengguna)
         next_question_available = True
         if is_final:
             served_ids = session.question_ids_served or []
@@ -745,7 +740,7 @@ async def submit_answer(
             )
             next_question_available = next_question is not None
         
-        # Generate feedback
+        # Susun feedback
         if is_correct:
             feedback = "Jawaban benar!"
         elif not is_final:
@@ -755,7 +750,7 @@ async def submit_answer(
         if not is_final:
             feedback += f" (Attempt {attempt_number}/3)"
         
-        # Build query result data if available
+        # Susun data hasil query jika tersedia
         query_result_data = None
         if user_query_result:
             from app.schemas.session import QueryResultData
@@ -776,7 +771,7 @@ async def submit_answer(
             error_message=error_message
         )
         
-        # Log assessment event using helper function
+        # Catat event asesmen menggunakan fungsi pembantu
         log_assessment_event(
             user_id=str(current_user.user_id),
             session_id=session_id,
@@ -821,17 +816,17 @@ async def get_next_question_endpoint(
     """
     Finalisasi soal saat ini dan dapatkan soal berikutnya.
     
-    Flow:
-    1. Validasi session ACTIVE milik user
-    2. Pastikan ada attempt pada soal saat ini (tidak boleh skip tanpa attempt)
-    3. Ambil semua attempt untuk soal ini dari assessment_logs
-    4. Hitung W (success rate) menggunakan Vesin Eq. 3
-    5. Update Elo rating untuk user dan question
-    6. Reset current_question_id (tandai soal lama sebagai completed)
-    7. Dapatkan soal baru dan update session
+    Alur:
+    1. Validasi sesi ACTIVE milik pengguna
+    2. Pastikan ada percobaan pada soal saat ini (tidak boleh skip tanpa percobaan)
+    3. Ambil seluruh percobaan untuk soal ini dari assessment_logs
+    4. Hitung W (tingkat keberhasilan) menggunakan Persamaan Vesin 3
+    5. Perbarui rating Elo untuk pengguna dan soal
+    6. Reset current_question_id (tandai soal lama sebagai selesai)
+    7. Ambil soal baru dan perbarui sesi
     """
     try:
-        # Cari session
+        # Cari sesi
         result = await db.execute(
             select(AssessmentSession)
             .where(AssessmentSession.session_id == session_id)
@@ -846,7 +841,7 @@ async def get_next_question_endpoint(
                 message="Active session not found"
             )
         
-        # Validasi: harus ada attempt pada soal saat ini
+        # Validasi: harus ada percobaan pada soal saat ini
         if not session.current_question_id:
             return jsend_fail(
                 code=HTTP_400_BAD_REQUEST,
@@ -859,7 +854,7 @@ async def get_next_question_endpoint(
                 message="Cannot finalize question without attempting it first."
             )
         
-        # Ambil semua attempt untuk soal ini
+        # Ambil seluruh percobaan untuk soal ini
         attempts_result = await db.execute(
             select(AssessmentLog).where(
                 AssessmentLog.session_id == session.session_id,
@@ -874,7 +869,7 @@ async def get_next_question_endpoint(
                 message="No attempts found for current question."
             )
         
-        # Get question data
+        # Ambil data soal
         question_result = await db.execute(
             select(Question).where(Question.question_id == session.current_question_id)
         )
@@ -886,10 +881,10 @@ async def get_next_question_endpoint(
                 message="Current question not found."
             )
         
-        # Hitung success rate (W) menggunakan Vesin Eq. 3
+        # Hitung tingkat keberhasilan (W) menggunakan Persamaan Vesin 3
         successful_attempts = sum(1 for attempt in attempts if attempt.is_correct)
         total_attempts = len(attempts)
-        final_attempt = attempts[-1]  # Use final attempt for timing
+        final_attempt = attempts[-1]  # Gunakan percobaan terakhir untuk pencatatan waktu
         
         success_rate = calculate_success_rate(
             successful_attempts=successful_attempts,
@@ -900,9 +895,9 @@ async def get_next_question_endpoint(
             time_limit_ms=300000
         )
         
-        # Update Elo rating
+        # Perbarui rating Elo
         theta_before = current_user.theta_individu
-        diff_before = question.current_difficulty  # Simpan diff sebelum ganti
+        diff_before = question.current_difficulty  # Simpan tingkat kesulitan sebelum diperbarui
         k_factor = get_k_factor(session.total_session_attempts)
         
         new_theta, new_difficulty = update_elo_ratings(
@@ -912,27 +907,27 @@ async def get_next_question_endpoint(
             k_factor=k_factor
         )
         
-        # Update user dan question
+        # Perbarui pengguna dan soal
         current_user.theta_individu = new_theta
         current_user.total_attempts += 1
         current_user.k_factor = k_factor
         question.current_difficulty = new_difficulty
         
-        # Update final attempt log dengan theta values
+        # Perbarui log percobaan terakhir dengan nilai rating theta
         final_attempt.theta_before = theta_before
         final_attempt.theta_after = new_theta
         final_attempt.difficulty_before = diff_before
         final_attempt.difficulty_after = new_difficulty
         final_attempt.is_final_attempt = True
         
-        # Reset current question (tandai sebagai completed)
+        # Reset soal aktif saat ini (tandai sebagai selesai)
         session.current_question_id = None
         session.current_question_attempt_count = 0
         
-        # Check dan unlock modul baru
+        # Periksa dan buka modul baru jika memenuhi syarat
         await check_and_unlock_modules(current_user, db)
         
-        # Check if next module was just unlocked - if so, end session
+        # Periksa jika modul berikutnya baru terbuka - jika ya, akhiri sesi
         current_module_result = await db.execute(
             select(Module).where(Module.module_id == session.module_id)
         )
@@ -957,7 +952,7 @@ async def get_next_question_endpoint(
                     next_module_unlocked = True
                     
         if next_module_unlocked:
-            # End session as user has unlocked the next chapter
+            # Akhiri sesi karena pengguna sudah membuka modul bab berikutnya
             session.status = "COMPLETED"
             session.ended_at = datetime.now(timezone.utc)
             await db.commit()
@@ -1005,9 +1000,9 @@ async def get_next_question_endpoint(
         stagnation_source = None  # 'VARIANCE', 'FALLBACK', atau None
         
         try:
-            # === STAGNATION DETECTION LOGIC PER TECHNICAL SPEC v4 Section 6.3 ===
+            # === LOGIKA DETEKSI STAGNASI SESUAI SPESIFIKASI TEKNIS v4 Section 6.3 ===
             
-            # Step 1: Variance-based detection (primary) - untuk semua grup
+            # Langkah 1: Deteksi berbasis variansi (utama) - berlaku untuk semua grup
             variance_stagnation = await detect_stagnation(
                 user_id=current_user.user_id,
                 current_module_id=session.module_id,
@@ -1018,10 +1013,10 @@ async def get_next_question_endpoint(
                 stagnation_detected = True
                 stagnation_source = 'VARIANCE'
             
-            # Step 2: Fallback trigger (secondary) - hanya jika variance tidak trigger
+            # Langkah 2: Pemicu cadangan (secondary) - hanya jika deteksi variansi tidak aktif
             # dan hanya untuk Grup A
             if not stagnation_detected and current_user.group_assignment == 'A':
-                # Query 8 final attempts terakhir di module ini (via join dengan AssessmentSession)
+                # Query 8 percobaan terakhir di modul ini (via join dengan AssessmentSession)
                 recent_logs_result = await db.execute(
                     select(AssessmentLog)
                     .join(AssessmentSession, AssessmentLog.session_id == AssessmentSession.session_id)
@@ -1036,8 +1031,8 @@ async def get_next_question_endpoint(
                 recent_logs = recent_logs_result.scalars().all()
                 wrong_count = sum(1 for log in recent_logs if not log.is_correct)
                 
-                # Check next module unlock status (current_module already defined above)
-                is_next_unlocked = True  # Default ke True (tidak trigger fallback)
+                # Periksa status pembukaan modul berikutnya
+                is_next_unlocked = True  # Default ke True
                 if current_module and current_module.module_id != "CH03":
                     next_module_result = await db.execute(
                         select(Module).where(
@@ -1050,7 +1045,7 @@ async def get_next_question_endpoint(
                             current_user.theta_individu >= next_module.unlock_theta_threshold
                         )
                 
-                # Check fallback trigger
+                # Periksa pemicu cadangan
                 fallback_triggered = check_fallback_trigger(
                     group_assignment=current_user.group_assignment,
                     current_module_id=session.module_id,
@@ -1067,17 +1062,17 @@ async def get_next_question_endpoint(
                         extra={"event_type": "STAGNATION_FALLBACK_TRIGGER", "session_id": session_id}
                     )
             
-            # Step 3: Handle stagnation berdasarkan grup
+            # Langkah 3: Tangani stagnansi berdasarkan pembagian grup
             if stagnation_detected:
-                # Update flag di assessment_log (final_attempt sudah di-set sebelumnya)
+                # Update flag di log
                 final_attempt.stagnation_detected = True
 
                 # Update flag di user
                 current_user.stagnation_ever_detected = True
 
                 if current_user.group_assignment == 'A' and not final_attempt.is_correct:
-                    # Grup A: Trigger intervensi (peer matching) HANYA jika jawaban salah
-                    # Stagnation yang benar tidak memicu peer session
+                    # Grup A: Picu intervensi peer matching KALO jawaban salah
+                    # Kalo jawaban bener mah nggak perlu peer session
                     event_type = (
                         "STAGNATION_DETECTED"
                         if stagnation_source == 'VARIANCE'
@@ -1089,11 +1084,11 @@ async def get_next_question_endpoint(
                         extra={"event_type": event_type, "session_id": session_id}
                     )
 
-                    # Peer Matching: Cari peer heterogen per Section 6.4
+                    # Cari temen buat review (peer heterogen)
                     peer = await find_heterogeneous_peer(current_user, db)
 
                     if peer:
-                        # Create peer session linking requester and reviewer
+                        # Buat sesi review antar user
                         await create_peer_session(
                             requester=current_user,
                             reviewer=peer,
@@ -1128,7 +1123,7 @@ async def get_next_question_endpoint(
                         )
                         
                 else:  # Grup B
-                    # Grup B: Log stagnation tapi tidak memicu intervensi
+                    # Grup B: Catat stagnansi tetapi tidak memicu intervensi
                     assessment_logger.info(
                         f"Stagnation detected for Group B (no intervention): "
                         f"user={current_user.user_id}, session={session_id}, "
@@ -1149,7 +1144,7 @@ async def get_next_question_endpoint(
                 extra={"event_type": "STAGNATION_DETECTION_ERROR", "session_id": session_id}
             )
         
-        # Log assessment event untuk question finalization
+        # Catat event asesmen untuk finalisasi soal
         log_assessment_event(
             user_id=str(current_user.user_id),
             session_id=session_id,
@@ -1165,7 +1160,7 @@ async def get_next_question_endpoint(
         
         await db.commit()
         
-        # Dapatkan soal berikutnya
+        # Ambil soal berikutnya
         served_question_ids = session.question_ids_served or []
         selected_question = await select_next_question(
             user_theta=current_user.theta_individu,
@@ -1185,18 +1180,18 @@ async def get_next_question_endpoint(
                 message="No more questions available. Session completed."
             )
         
-        # Update session dengan soal baru
+        # Perbarui sesi dengan soal baru
         current_served = list(session.question_ids_served) if session.question_ids_served else []
         current_served.append(selected_question.question_id)
         session.question_ids_served = current_served
         session.current_question_id = selected_question.question_id
         session.current_question_attempt_count = 0
-        session.current_question_start_time = datetime.now(timezone.utc)  # Reset timer buat soal baru
+        session.current_question_start_time = datetime.now(timezone.utc)  # Reset penghitung waktu untuk soal baru
         
-        # Hitung jumlah soal yang sudah di-serve dan total tersedia
+        # Hitung jumlah soal yang disajikan dan total yang tersedia
         questions_served = len(current_served)
         
-        # Query total questions available in this module
+        # Ambil total jumlah soal yang tersedia di modul ini
         total_questions_result = await db.execute(
             select(Question).where(Question.module_id == session.module_id)
         )

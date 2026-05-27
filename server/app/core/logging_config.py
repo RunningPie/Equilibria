@@ -1,6 +1,5 @@
 """
 Modul Konfigurasi Logging
-Spesifikasi Teknis v2 - Bagian 6.6, 8.1
 
 Sistem dual logging:
 1. System Logs (/app/logs/syslogs/) - Event aplikasi, error, security
@@ -18,26 +17,22 @@ from app.core.config import settings
 
 def _get_log_file_path(log_dir: Path, prefix: str, max_bytes: int, max_age_days: int = 1) -> Path:
     """
-    Find an existing log file to reuse if it meets criteria:
+    Cari log file yang ada dan kalau:
     - File size < max_bytes
     - File age < max_age_days
-    Otherwise create a new file with current timestamp.
+    maka lanjut di file itu, kalau tidak maka buat baru.
     """
     now = datetime.now(timezone.utc)
     current_date = now.date()
     
-    # Look for existing log files matching pattern: {prefix}_YYYYMMDD_HHMMSS.json
     pattern = f"{prefix}_*.json"
     existing_files = sorted(log_dir.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
     
     for file_path in existing_files:
         try:
-            # Check file size
             file_size = file_path.stat().st_size
             if file_size >= max_bytes:
                 continue
-            
-            # Check file age (parse from filename or use mtime)
             file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
             file_date = file_mtime.date()
             age_days = (current_date - file_date).days
@@ -47,19 +42,17 @@ def _get_log_file_path(log_dir: Path, prefix: str, max_bytes: int, max_age_days:
         except (OSError, ValueError):
             continue
     
-    # No suitable file found, create new one
     timestamp = now.strftime("%Y%m%d_%H%M%S")
     return log_dir / f"{prefix}_{timestamp}.json"
 
 
 class JSONFormatter(logging.Formatter):
     """
-    Custom JSON formatter untuk structured logging.
     Memudahkan parsing untuk log analysis tools.
     """
     
     def format(self, record: logging.LogRecord) -> str:
-        # Use a clean ISO format with Z for UTC
+        # Pake timestamp yang timezone aware
         timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
         log_data = {
             "timestamp": timestamp,
@@ -107,7 +100,6 @@ def setup_logging(
     """
     Setup sistem dual logging dengan auto-rotation.
     """
-    # Use settings if not provided
     log_dir = log_dir or settings.LOG_DIR
     syslog_dir = syslog_dir or settings.SYSLOG_DIR
     asslog_dir = asslog_dir or settings.ASSLOG_DIR
@@ -188,14 +180,14 @@ def setup_logging(
     return system_logger, assessment_logger
 
 
-# Global logger instances (initialized on import)
+# Global logger instances
 system_logger: Optional[logging.Logger] = None
 assessment_logger: Optional[logging.Logger] = None
 
 
 def get_loggers() -> tuple[logging.Logger, logging.Logger]:
     """
-    Get logger instances. Inisialisasi kalau belum dilakukan.
+    Getter buat logger instances. Init kalau belum.
     """
     global system_logger, assessment_logger
     
@@ -218,18 +210,6 @@ def log_assessment_event(
 ):
     """
     Helper function untuk log assessment events ke DB dan flat file.
-    Spesifikasi Teknis v2 - Bagian 6.6
-    
-    Args:
-        user_id: User UUID
-        session_id: Session UUID
-        question_id: Question identifier
-        theta_before: Theta value sebelum update
-        theta_after: Theta value setelah update
-        is_correct: Apakah jawaban benar
-        execution_time_ms: Waktu yang dihabiskan untuk solve
-        event_type: Tipe assessment event
-        **kwargs: Additional fields untuk log
     """
     global assessment_logger
     

@@ -1,6 +1,5 @@
 """
-Strategi Pemilihan Soal - Tech Specs v4.2 Section 6.2
-
+Strategi Pemilihan Soal
 Algoritma pemilihan soal adaptif untuk pretest dan chapter sessions.
 Digunakan bersama oleh PreTest dan Assessment Session APIs.
 """
@@ -20,16 +19,7 @@ async def select_next_question(
     db: AsyncSession
 ) -> Optional[Question]:
     """
-    Item Selection Strategy per Tech Specs v4.2 Section 6.2.
-    
-    Args:
-        user_theta: Rating theta pengguna saat ini
-        module_id: ID modul (CH01, CH02, dll)
-        served_question_ids: Daftar ID soal yang sudah di-serve di session ini
-        db: Database session
-        
-    Returns:
-        Question yang dipilih atau None kalau tidak ada soal tersedia
+    Item Selection Strategy
     """
     # Filter soal yang aktif dan belum di-serve
     result = await db.execute(
@@ -70,16 +60,7 @@ async def select_pretest_question(
 ) -> Optional[Question]:
     """
     Pemilihan soal untuk pretest.
-    Menggunakan current_theta untuk semua soal (tidak ada difficulty 0 khusus).
-    
-    Args:
-        current_theta: Rating theta saat ini untuk pretest
-        question_index: Indeks soal saat ini (0-based) - tidak digunakan untuk selection
-        answered_ids: Daftar ID soal yang sudah dijawab
-        db: Database session
-        
-    Returns:
-        Question yang dipilih atau None kalau tidak ada soal tersedia
+    Menggunakan current_theta untuk semua soal
     """
     # Filter soal CH01 yang belum dijawab
     result = await db.execute(

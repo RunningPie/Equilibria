@@ -1,3 +1,7 @@
+"""
+API Modul - Mengelola daftar modul pembelajaran dan progres akses pengguna
+"""
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,11 +10,14 @@ from starlette.status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR
 from app.db.session import get_db
 from app.schemas.jsend import jsend_success, jsend_error
 from app.core.dependencies import get_current_user
+from app.core.logging_config import get_loggers
 from app.db.models.user import User
 from app.db.models.module import Module
 from app.db.models.user_module_progress import UserModuleProgress
 
 router = APIRouter(prefix="/modules", tags=["Modules"])
+
+logger = get_loggers()[0]
 
 @router.get("")
 async def list_modules(
@@ -49,7 +56,7 @@ async def list_modules(
             if is_completed:
                 previous_completed = True
             elif not is_locked:
-                # bisa diakses tapi blm beres
+                # Bisa diakses tetapi belum selesai
                 previous_completed = False
         
             data.append(

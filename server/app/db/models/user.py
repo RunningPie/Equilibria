@@ -1,6 +1,5 @@
 """
 User Model - Merepresentasikan tabel users di skema public.
-Sesuai Technical Specifications v2 Section 3.1 Table users.
 """
 # Updated imports for SQLAlchemy 2.0+ typing
 from sqlalchemy import String, Float, Integer, Boolean, DateTime, CheckConstraint

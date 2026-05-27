@@ -1,7 +1,5 @@
 """
-Schema untuk API Collaboration - Tech Specs v4.2 Bagian 7.E
-
-Endpoint kolaboratif untuk sistem peer review.
+Skema Kolaborasi - Validasi data dan struktur respons untuk fitur peer review kolaboratif
 """
 
 from pydantic import BaseModel, Field, ConfigDict

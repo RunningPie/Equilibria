@@ -1,3 +1,7 @@
+"""
+Router Utama API - Menggabungkan seluruh sub-router API aplikasi
+"""
+
 from fastapi import APIRouter
 from .auth import router as auth_router
 from .pretest import router as pretest_router

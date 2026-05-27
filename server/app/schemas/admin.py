@@ -8,7 +8,7 @@ from datetime import datetime
 from uuid import UUID
 
 
-# === User Management Schemas ===
+# === Skema Manajemen Pengguna ===
 
 class AdminUserCreate(BaseModel):
     """Schema untuk membuat user baru (hanya admin)"""
@@ -117,7 +117,7 @@ class UserListResponse(BaseModel):
     )
 
 
-# === Log Access Schemas ===
+# === Skema Akses Log ===
 
 class LogQueryParams(BaseModel):
     """Parameter query untuk filtering log"""

@@ -1,6 +1,5 @@
 """
 PreTest Session Model.
-Sesuai Technical Specifications v2 Section 3.1 Table pretest_sessions.
 """
 from sqlalchemy import String, Float, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column

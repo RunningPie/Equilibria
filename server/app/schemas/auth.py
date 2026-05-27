@@ -1,11 +1,16 @@
+"""
+Skema Autentikasi - Validasi data registrasi, login, pembaruan profil, dan respons autentikasi
+"""
+
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
 
-# === Schema Request ===
+# === Skema Request ===
 
 class UserRegister(BaseModel):
+    """Skema untuk data registrasi pengguna baru"""
     nim: str = Field(..., min_length=8, max_length=10, example="1234567890")
     full_name: str = Field(..., max_length=100, example="John Doe")
     password: str = Field(..., min_length=8, example="strongpassword123")
@@ -23,6 +28,7 @@ class UserRegister(BaseModel):
     )
 
 class UserLogin(BaseModel):
+    """Skema untuk kredensial login pengguna"""
     nim: str = Field(..., min_length=8, max_length=10, example="1234567890")
     password: str = Field(..., min_length=8, example="strongpassword123")
     
@@ -36,6 +42,7 @@ class UserLogin(BaseModel):
     )
 
 class UserUpdate(BaseModel):
+    """Skema untuk data pembaruan profil pengguna"""
     full_name: Optional[str] = Field(None, max_length=100, example="John Doe Updated")
     old_password: Optional[str] = Field(None, min_length=8, example="newstrongpassword123")
     new_password: Optional[str] = Field(None, min_length=8, example="newstrongpassword123")
@@ -50,7 +57,7 @@ class UserUpdate(BaseModel):
         }
     )
 
-# === Schema Response ===
+# === Skema Response ===
 class UserResponse(BaseModel):
     '''
     Digunakan untuk response yang mengembalikan informasi user, misalnya setelah login atau update profile
@@ -70,7 +77,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     
     model_config = ConfigDict(
-        from_attributes=True, # supaya bisa baca dari SQLAlchemy model
+        from_attributes=True, # Supaya bisa membaca dari SQLAlchemy model
         json_schema_extra={
             "example": {
                 "user_id": "123e4567-e89b-12d3-a456-426614174000",
@@ -96,7 +103,7 @@ class LoginResponse(BaseModel):
     '''
     access_token: str
     token_type: str = "bearer"
-    user: UserResponse # ini ambil dari model atas
+    user: UserResponse # Ini diambil dari model di atas
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -123,6 +130,7 @@ class LoginResponse(BaseModel):
     )
 
 class LogoutResponse(BaseModel):
+    """Skema untuk respons setelah berhasil logout"""
     message: str = Field(..., example="Berhasil logout")
     
     model_config = ConfigDict(

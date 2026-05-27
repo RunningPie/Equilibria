@@ -75,14 +75,14 @@ async def get_leaderboard(
     Display names diobfuscate (e.g., "D***a") kecuali untuk entry user saat ini.
     """
     
-    # Hitung total user (exclude soft-deleted)
+    # Hitung total user (abaikan soft-delete)
     total_result = await db.execute(
         select(func.count()).select_from(User).where(User.is_deleted == False)
     )
     total = total_result.scalar()
     
     # Ambil user diurutkan theta_display descending dengan pagination
-    # Exclude soft-deleted users
+    # Abaikan user yang soft-deleted
     # Catatan: theta_display adalah computed property, jadi pakai rumus langsung
     # theta_display = (0.8 * theta_individu) + (0.2 * theta_social)
     stmt = (
@@ -96,7 +96,7 @@ async def get_leaderboard(
     result = await db.execute(stmt)
     users = result.scalars().all()
     
-    # Buat leaderboard entries
+    # Buat list entri leaderboard
     entries: list[LeaderboardEntry] = []
     current_user_id = current_user.user_id if current_user else None
     
@@ -104,7 +104,7 @@ async def get_leaderboard(
         rank = offset + idx + 1
         is_self = user.user_id == current_user_id
         
-        # Obfuscate display name kecuali untuk self
+        # Samarkan nama tampilan kecuali untuk diri sendiri
         if is_self:
             display_name = user.full_name
         else:
@@ -120,7 +120,7 @@ async def get_leaderboard(
             )
         )
     
-    # Log requestnya
+    # Log permintaan leaderboard
     logger.info(
         f"Leaderboard fetched: limit={limit}, offset={offset}, total={total}",
         extra={

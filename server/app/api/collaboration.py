@@ -53,7 +53,7 @@ async def get_inbox(
     Return semua status: PENDING_REVIEW, WAITING_CONFIRMATION, COMPLETED.
     """
     try:
-        # Join with User to exclude sessions where requester is soft-deleted
+        # Join dengan User untuk menyaring sesi yang requester-nya sudah di-soft-delete
         result = await db.execute(
             select(PeerSession)
             .join(User, PeerSession.requester_id == User.user_id)
@@ -152,7 +152,7 @@ async def get_review_task(
             ),
             requester_query=peer_session.requester_query if hasattr(peer_session, 'requester_query') else "",
             status=peer_session.status,
-            expires_at=None  # Can add expiration logic later
+            expires_at=None  # Bisa tambahkan logika kedaluwarsa nanti
         )
 
         return jsend_success(
@@ -222,7 +222,7 @@ async def submit_review(
 
         await db.commit()
 
-        # Log assessment event
+        # Log event asesmen
         assessment_logger.info(
             f"Peer review submitted: session={session_id}, reviewer={current_user.user_id}, "
             f"system_score={system_score:.2f}",
@@ -273,7 +273,7 @@ async def get_requests(
     Tampilkan semua status: PENDING_REVIEW, WAITING_CONFIRMATION, COMPLETED.
     """
     try:
-        # Join with User to exclude sessions where reviewer is soft-deleted
+        # Join dengan User untuk menyaring sesi yang reviewer-nya sudah di-soft-delete
         result = await db.execute(
             select(PeerSession)
             .join(User, PeerSession.reviewer_id == User.user_id)
@@ -359,14 +359,14 @@ async def rate_feedback(
                 message=f"Cannot rate feedback. Current status: {peer_session.status}"
             )
 
-        # Update is_helpful
+        # Update status kebaikan/bantuan feedback
         peer_session.is_helpful = rate_data.is_helpful
 
         # Hitung final_score
         final_score = peer_session.calculate_final_score()
         peer_session.final_score = final_score
 
-        # Ambil reviewer untuk Social Elo update (exclude soft-deleted)
+        # Ambil reviewer untuk update Social Elo (abaikan soft-delete)
         reviewer_result = await db.execute(
             select(User).where(
                 and_(
@@ -383,15 +383,15 @@ async def rate_feedback(
                 message="Reviewer not found or account is deactivated"
             )
 
-        # Update Social Elo
+        # Update nilai Social Elo
         theta_before, theta_after = update_theta_social(reviewer, peer_session)
 
-        # Update requester status back to ACTIVE
+        # Kembalikan status requester menjadi ACTIVE
         current_user.status = "ACTIVE"
 
         await db.commit()
 
-        # Log assessment event
+        # Log event asesmen
         assessment_logger.info(
             f"Peer feedback rated: session={session_id}, requester={current_user.user_id}, "
             f"is_helpful={rate_data.is_helpful}, final_score={final_score:.2f}, "

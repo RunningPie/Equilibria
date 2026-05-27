@@ -1,5 +1,5 @@
 """
-Schemas untuk Assessment Session API - Tech Specs v4.2
+Skema Sesi Asesmen - Validasi request memulai sesi, menyajikan soal, submit jawaban, serta respons progres sesi
 """
 
 from pydantic import BaseModel, Field, ConfigDict

@@ -1,3 +1,7 @@
+"""
+API Profil - Mengelola data profil pengguna dan statistik rating Elo
+"""
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_200_OK

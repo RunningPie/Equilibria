@@ -1,3 +1,7 @@
+"""
+Skema JSend - Validasi format respons standar JSend (success, fail, error) dan fungsi pembantunya
+"""
+
 from typing import Generic, Optional, TypeVar
 from pydantic import BaseModel, Field
 from enum import Enum
@@ -52,7 +56,7 @@ class Config:
         }
     }
     
-# === HElper ====
+# === Helper ===
 
 def jsend_success(code: int, data: T, message: str = "Request processed successfully") -> JSONResponse:
     '''

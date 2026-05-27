@@ -1,6 +1,5 @@
 """
 Assessment Session Model.
-Sesuai Technical Specifications v2 Section 3.1 Table assessment_sessions.
 """
 from sqlalchemy import String, Integer, DateTime, ForeignKey, Enum, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship

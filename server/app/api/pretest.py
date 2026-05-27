@@ -1,3 +1,7 @@
+"""
+API Pretest - Mengelola pelaksanaan pretest pengguna untuk mengukur kemampuan awal (initial Elo rating)
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,6 +45,9 @@ async def start_pretest(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 )-> JSONResponse:
+    """
+    Mulai sesi pretest baru untuk pengguna yang belum memiliki rating awal.
+    """
     try:
         # Cek apakah user sudah selesai pretest
         user = await db.execute(select(User).where(User.user_id == current_user.user_id))
@@ -55,7 +62,7 @@ async def start_pretest(
         pretest_session = await db.execute(select(PreTestSession).where(PreTestSession.user_id == current_user.user_id).where(PreTestSession.completed_at.is_(None)))
         pretest_session = pretest_session.scalar_one_or_none()
         if pretest_session:
-            # return existing pretest session
+            # Kembalikan pretest session yang sudah ada
             return jsend_success(
                 code=status.HTTP_200_OK,
                 message="Pretest session already started",
@@ -69,7 +76,7 @@ async def start_pretest(
                 )
             )
         
-        # Create new pretest session
+        # Buat pretest session baru
         new_pretest_session = PreTestSession(
             user_id=current_user.user_id,
             current_question_index=0,
@@ -101,8 +108,11 @@ async def get_current_question(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 )-> JSONResponse:
+    """
+    Ambil soal pretest saat ini yang harus dikerjakan pengguna.
+    """
     try:
-        # Get current question
+        # Ambil soal aktif saat ini
         pretest_session = await db.execute(select(PreTestSession).where(PreTestSession.user_id == current_user.user_id).where(PreTestSession.completed_at.is_(None)))
         pretest_session = pretest_session.scalar_one_or_none()
         if not pretest_session:
@@ -165,6 +175,9 @@ async def submit_pretest_answer(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> JSONResponse:
+    """
+    Submit jawaban untuk soal pretest saat ini dan hitung rating awal jika sudah selesai.
+    """
     try:
         # 1. Ambil session yg aktif saat ini
         session_result = await db.execute(
@@ -264,7 +277,7 @@ async def submit_pretest_answer(
                     )
                 )
             
-            # Build query result data if available
+            # Susun data hasil query jika tersedia
             query_result_data = None
             if user_query_result:
                 query_result_data = QueryResultData(
@@ -290,7 +303,7 @@ async def submit_pretest_answer(
             pretest_session.current_question_index += 1
             message = "Answer submitted. Next question"
 
-            # Build query result data if available
+            # Susun data hasil query jika tersedia
             query_result_data = None
             if user_query_result:
                 query_result_data = QueryResultData(

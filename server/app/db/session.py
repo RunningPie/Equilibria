@@ -11,7 +11,7 @@ from typing import AsyncGenerator, Optional
 from sqlalchemy import select
 import ssl
 
-logger = get_loggers()[0]  # Get system logger
+logger = get_loggers()[0]
 
 class DatabaseSession:
     '''
